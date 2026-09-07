@@ -9,7 +9,7 @@ import {
   Building2, 
   Bell, 
   Settings, 
-  HelpCircle, 
+  CircleHelp, 
   LogOut,
   ShieldAlert
 } from 'lucide-react';
@@ -68,8 +68,12 @@ const AdminSidebar = ({ isOpen, toggleSidebar }) => {
         </nav>
         
         <div className="sidebar-bottom">
-          <NavLink to="#" className="sidebar-link" onClick={(e) => e.preventDefault()}>
-            <HelpCircle size={18} />
+          <NavLink 
+            to="/admin/help-support" 
+            className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+            onClick={() => { if (isOpen) toggleSidebar(); }}
+          >
+            <CircleHelp size={18} />
             <span>Help & Support</span>
           </NavLink>
           <NavLink to="/login" className="sidebar-link" style={{ color: 'var(--danger)' }}>

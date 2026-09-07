@@ -26,6 +26,7 @@ import Users from './pages/admin/Users';
 import Departments from './pages/admin/Departments';
 import Notifications from './pages/admin/Notifications';
 import Settings from './pages/admin/Settings';
+import HelpSupport from './pages/admin/HelpSupport';
 
 // Department Pages
 import DepartmentDashboard from './pages/department/DepartmentDashboard';
@@ -75,6 +76,7 @@ function App() {
           <Route path="departments" element={<Departments />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="help-support" element={<HelpSupport />} />
         </Route>
       </Routes>
     </Router>
