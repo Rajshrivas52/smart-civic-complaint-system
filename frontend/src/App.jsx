@@ -25,6 +25,7 @@ import ComplaintMap from './pages/admin/ComplaintMap';
 import Users from './pages/admin/Users';
 import Departments from './pages/admin/Departments';
 import Notifications from './pages/admin/Notifications';
+import Settings from './pages/admin/Settings';
 
 // Department Pages
 import DepartmentDashboard from './pages/department/DepartmentDashboard';
@@ -36,7 +37,6 @@ const ProfilePlaceholder = () => <div className="card" style={{ padding: '2rem' 
 
 const AdminMapPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>GIS Interactive Complaint Map</h2><p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Leaflet + OpenStreetMap integration module interface.</p></div>;
 const AdminNotificationsPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>Admin Notifications Center</h2><p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>System notifications and department escalation logs.</p></div>;
-const AdminSettingsPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>System Settings</h2><p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Municipal dashboard configuration and user access roles.</p></div>;
 
 function App() {
   return (
@@ -74,7 +74,7 @@ function App() {
           <Route path="users" element={<Users />} />
           <Route path="departments" element={<Departments />} />
           <Route path="notifications" element={<Notifications />} />
-          <Route path="settings" element={<AdminSettingsPlaceholder />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Router>
