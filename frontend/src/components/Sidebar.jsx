@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, List, Bell, User, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, Bell, User, Settings, LogOut } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   return (
@@ -33,8 +33,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             Report Complaint
           </NavLink>
           
-          <NavLink to="/citizen/complaints" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-            <List size={20} />
+          <NavLink to="/citizen/my-complaints" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <ClipboardList size={20} />
             My Complaints
           </NavLink>
           
