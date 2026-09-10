@@ -58,6 +58,7 @@ function App() {
         <Route path="/citizen" element={<CitizenLayout />}>
           <Route path="dashboard" element={<CitizenDashboard />} />
           <Route path="report" element={<ReportComplaint />} />
+          <Route path="my-complaints" element={<MyComplaints />} />
           <Route path="complaints" element={<MyComplaints />} />
           <Route path="complaints/:id" element={<ComplaintDetails />} />
           <Route path="notifications" element={<NotificationsPlaceholder />} />
