@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, ClipboardList, Bell, User, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, ClipboardList, MapPin, Bell, User, HelpCircle, Settings, LogOut } from 'lucide-react';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   return (
@@ -30,12 +30,17 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           
           <NavLink to="/citizen/report" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <FileText size={20} />
-            Report Complaint
+            Report Issue
           </NavLink>
           
           <NavLink to="/citizen/my-complaints" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <ClipboardList size={20} />
             My Complaints
+          </NavLink>
+          
+          <NavLink to="/citizen/complaint-map" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <MapPin size={20} />
+            Complaint Map
           </NavLink>
           
           <NavLink to="/citizen/notifications" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
@@ -47,13 +52,14 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <User size={20} />
             Profile
           </NavLink>
+          
+          <NavLink to="/citizen/help-support" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+            <HelpCircle size={20} />
+            Help & Support
+          </NavLink>
         </nav>
         
         <div className="sidebar-bottom">
-          <NavLink to="#" className="sidebar-link">
-            <Settings size={20} />
-            Settings
-          </NavLink>
           <NavLink to="/login" className="sidebar-link" style={{ color: 'var(--danger)' }}>
             <LogOut size={20} />
             Logout
