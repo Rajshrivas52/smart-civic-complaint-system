@@ -16,6 +16,8 @@ import CitizenDashboard from './pages/citizen/CitizenDashboard';
 import ReportComplaint from './pages/citizen/ReportComplaint';
 import MyComplaints from './pages/citizen/MyComplaints';
 import ComplaintDetails from './pages/citizen/ComplaintDetails';
+import CitizenNotifications from './pages/citizen/CitizenNotifications';
+import CitizenProfile from './pages/citizen/CitizenProfile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -58,10 +60,14 @@ function App() {
         <Route path="/citizen" element={<CitizenLayout />}>
           <Route path="dashboard" element={<CitizenDashboard />} />
           <Route path="report" element={<ReportComplaint />} />
+          <Route path="my-complaints" element={<MyComplaints />} />
           <Route path="complaints" element={<MyComplaints />} />
           <Route path="complaints/:id" element={<ComplaintDetails />} />
-          <Route path="notifications" element={<NotificationsPlaceholder />} />
-          <Route path="profile" element={<ProfilePlaceholder />} />
+          <Route path="notifications" element={<CitizenNotifications />} />
+          <Route path="complaint-map" element={<ComplaintMap />} />
+          <Route path="profile" element={<CitizenProfile />} />
+          <Route path="profile/:tab" element={<CitizenProfile />} />
+          <Route path="help-support" element={<HelpSupport />} />
         </Route>
 
         {/* Admin Routes wrapped in AdminLayout */}

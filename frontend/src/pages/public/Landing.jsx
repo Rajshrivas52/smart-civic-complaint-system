@@ -104,7 +104,7 @@ const Landing = () => {
 
       {/* Footer */}
       <footer style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', marginTop: '4rem' }}>
-        <p>&copy; 2023 Smart Civic Complaint System. All rights reserved.</p>
+        <p>&copy; 2026 Smart Civic Complaint System. All rights reserved.</p>
         <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>A Phase 2A Prototype.</p>
       </footer>
     </div>
