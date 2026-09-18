@@ -54,7 +54,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <Settings size={20} />
             Settings
           </NavLink>
-          <NavLink to="/login" className="sidebar-link" style={{ color: 'var(--danger)' }}>
+          <NavLink 
+            to="/login" 
+            className="sidebar-link" 
+            style={{ color: 'var(--danger)' }}
+            onClick={() => {
+              localStorage.removeItem('civic_token');
+              localStorage.removeItem('civic_user');
+            }}
+          >
             <LogOut size={20} />
             Logout
           </NavLink>

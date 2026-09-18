@@ -76,7 +76,16 @@ const AdminSidebar = ({ isOpen, toggleSidebar }) => {
             <CircleHelp size={18} />
             <span>Help & Support</span>
           </NavLink>
-          <NavLink to="/login" className="sidebar-link" style={{ color: 'var(--danger)' }}>
+          <NavLink 
+            to="/login" 
+            className="sidebar-link" 
+            style={{ color: 'var(--danger)' }}
+            onClick={() => {
+              localStorage.removeItem('civic_token');
+              localStorage.removeItem('civic_user');
+              if (isOpen) toggleSidebar();
+            }}
+          >
             <LogOut size={18} />
             <span>Logout</span>
           </NavLink>

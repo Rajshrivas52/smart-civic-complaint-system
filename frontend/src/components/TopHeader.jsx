@@ -1,7 +1,19 @@
 import React from 'react';
 import { Menu, Search, Bell, ChevronDown } from 'lucide-react';
+import { getAuthUser } from '../services/api';
 
 const TopHeader = ({ title = 'Dashboard', toggleSidebar, unreadNotifications = 0 }) => {
+  const user = getAuthUser();
+  const displayName = user?.name || 'Raj Kumar';
+  const displayRole = user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'Citizen';
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <header className="citizen-header">
       <div className="header-left">
@@ -24,11 +36,11 @@ const TopHeader = ({ title = 'Dashboard', toggleSidebar, unreadNotifications = 0
         
         <div className="header-user">
           <div className="user-avatar">
-            RK
+            {initials}
           </div>
           <div className="user-info hidden md:flex" style={{ display: window.innerWidth > 768 ? 'flex' : 'none' }}>
-            <span className="user-name">Raj Kumar</span>
-            <span className="user-role">Citizen</span>
+            <span className="user-name">{displayName}</span>
+            <span className="user-role">{displayRole}</span>
           </div>
           <ChevronDown size={16} className="text-muted" />
         </div>
