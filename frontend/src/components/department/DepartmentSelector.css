@@ -1,0 +1,122 @@
+/* Department Selector Styles */
+
+.dept-selector-container {
+  position: relative;
+}
+
+.dept-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  background-color: var(--background, #f8fafc);
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: var(--radius-sm, 8px);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.dept-selector-btn:hover {
+  background-color: var(--surface-hover, #f1f5f9);
+  border-color: var(--primary-light, #e0e7ff);
+}
+
+.dept-selector-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+}
+
+.selector-arrow {
+  color: var(--text-muted, #64748b);
+  transition: transform 0.2s ease;
+}
+
+.selector-arrow.open {
+  transform: rotate(180deg);
+}
+
+.dept-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background-color: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius, 12px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  z-index: 60;
+  overflow: hidden;
+}
+
+.dropdown-header {
+  padding: 0.85rem 1rem;
+  background-color: var(--background, #f8fafc);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+}
+
+.dropdown-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.dropdown-options-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.dept-option-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border, #f1f5f9);
+  transition: background-color 0.15s ease;
+}
+
+.dept-option-item:hover {
+  background-color: var(--surface-hover, #f1f5f9);
+}
+
+.dept-option-item.selected {
+  background-color: rgba(79, 70, 229, 0.05);
+}
+
+.option-icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.option-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.option-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+}
+
+.option-code {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}

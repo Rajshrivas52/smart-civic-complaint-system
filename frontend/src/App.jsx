@@ -33,6 +33,7 @@ import HelpSupport from './pages/admin/HelpSupport';
 // Department Pages
 import DepartmentDashboard from './pages/department/DepartmentDashboard';
 import AssignedComplaints from './pages/department/AssignedComplaints';
+import RoadMaintenanceDashboard from './pages/department/RoadMaintenanceDashboard';
 
 // Placeholders for missing routes
 const NotificationsPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>Citizen Notifications</h2><p style={{ color: 'var(--text-muted)' }}>No unread notifications.</p></div>;
@@ -52,7 +53,8 @@ function App() {
           <Route path="register" element={<Register />} />
 
           {/* Department Routes */}
-          <Route path="department/dashboard" element={<DepartmentDashboard />} />
+          <Route path="department/dashboard" element={<RoadMaintenanceDashboard />} />
+          <Route path="department/road-maintenance/dashboard" element={<RoadMaintenanceDashboard />} />
           <Route path="department/complaints" element={<AssignedComplaints />} />
         </Route>
 
