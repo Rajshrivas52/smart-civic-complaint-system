@@ -1,4 +1,13 @@
+import 'dotenv/config';
 import mongoose from 'mongoose';
+import dns from 'node:dns';
+
+// Fix for Windows/ISP DNS servers failing to resolve MongoDB Atlas SRV records (ECONNREFUSED querySrv)
+try {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch (dnsErr) {
+  console.warn('[Database] Could not set custom DNS resolvers:', dnsErr.message);
+}
 
 /**
  * Connect to MongoDB with Mongoose

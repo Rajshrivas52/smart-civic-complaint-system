@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
 import User from '../models/User.js';
@@ -7,7 +7,6 @@ import Complaint from '../models/Complaint.js';
 import Notification from '../models/Notification.js';
 import Setting from '../models/Setting.js';
 
-dotenv.config();
 
 const defaultDepartments = [
   {
