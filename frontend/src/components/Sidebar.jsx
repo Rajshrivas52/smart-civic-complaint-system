@@ -1,8 +1,16 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FileText, ClipboardList, MapPin, Bell, User, HelpCircle, Settings, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
+  const { logoutUser } = useAuth();
+
+  const handleLogout = () => {
+    logoutUser();
+    if (isOpen && toggleSidebar) toggleSidebar();
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -68,10 +76,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             to="/login" 
             className="sidebar-link" 
             style={{ color: 'var(--danger)' }}
-            onClick={() => {
-              localStorage.removeItem('civic_token');
-              localStorage.removeItem('civic_user');
-            }}
+            onClick={handleLogout}
           >
             <LogOut size={20} />
             Logout

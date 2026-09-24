@@ -23,7 +23,7 @@ export const connectDB = async () => {
     console.log(`[Database] MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
     return conn;
   } catch (error) {
-    console.error(`[Database Error] Failed to connect to MongoDB at ${mongoUri}: ${error.message}`);
+    console.error(`[Database Error] Failed to connect to MongoDB: ${error.message}`);
     console.warn('[Database Notice] Please ensure MongoDB is running locally or specify MONGO_URI in backend/.env');
     // Return null instead of exiting immediately so health check and other endpoints can still be inspected
     return null;

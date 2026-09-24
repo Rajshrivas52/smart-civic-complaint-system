@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff, LogIn, AlertCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
-import { login } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,6 +15,11 @@ const Login = () => {
   const [success, setSuccess] = useState('');
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { loginUser } = useAuth();
+
+  const redirectMessage = location.state?.message;
+  const redirectFrom = location.state?.from;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,12 +28,26 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const data = await login({ email, password });
-      setSuccess(`Welcome back, ${data.user.name}!`);
+      const data = await loginUser({ email, password });
+      setSuccess(`Welcome back, ${data.user.name}! Redirecting...`);
 
-      // Route based on real user role returned by backend
       setTimeout(() => {
         const role = (data.user.role || '').toLowerCase();
+        
+        // If there was a target route they were trying to visit and they have valid permissions, go there
+        if (redirectFrom) {
+          if (redirectFrom.startsWith('/admin') && role !== 'admin') {
+            navigate('/citizen/dashboard');
+            return;
+          }
+          if (redirectFrom.startsWith('/department') && role !== 'department' && role !== 'admin') {
+            navigate('/citizen/dashboard');
+            return;
+          }
+          navigate(redirectFrom);
+          return;
+        }
+
         if (role === 'admin') {
           navigate('/admin/dashboard');
         } else if (role === 'department') {
@@ -55,8 +74,28 @@ const Login = () => {
       <Card style={{ width: '100%', maxWidth: '450px', padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Welcome Back</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Sign in with your registered civic account</p>
+          <p style={{ color: 'var(--text-muted)' }}>Login with your registered civic account</p>
         </div>
+
+        {/* Redirect / Auth Guard Message */}
+        {redirectMessage && !error && !success && (
+          <div style={{
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            color: '#b45309',
+            padding: '0.85rem 1rem',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '1.25rem',
+            fontSize: '0.875rem',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontWeight: '500'
+          }}>
+            <ShieldAlert size={18} style={{ flexShrink: 0, color: '#f59e0b' }} />
+            <span>{redirectMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div style={{
@@ -144,7 +183,7 @@ const Login = () => {
           </div>
 
           <Button type="submit" fullWidth disabled={loading}>
-            <LogIn size={18} /> {loading ? 'Signing in...' : 'Sign In'}
+            <LogIn size={18} /> {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
 
@@ -182,7 +221,7 @@ const Login = () => {
         </div>
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.95rem' }}>
-          Don't have an account? <Link to="/register" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}>Register here</Link>
+          Don't have an account? <Link to="/register" state={{ from: redirectFrom, message: redirectMessage }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}>Register here</Link>
         </p>
       </Card>
     </div>

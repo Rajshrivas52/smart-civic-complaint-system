@@ -1,4 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 import app from './src/app.js';
 import { connectDB } from './src/config/db.js';
@@ -7,10 +14,8 @@ const PORT = process.env.PORT || 5000;
 
 // Start server function
 const startServer = async () => {
-  // Connect to Database
   await connectDB();
 
-  // Start HTTP Server
   const server = app.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(` Smart Civic Complaint System Backend`);
@@ -20,12 +25,10 @@ const startServer = async () => {
     console.log(`====================================================`);
   });
 
-  // Handle unhandled promise rejections
   process.on('unhandledRejection', (err) => {
     console.error(`[Unhandled Rejection] Error: ${err.message}`);
   });
 
-  // Handle graceful shutdown
   process.on('SIGTERM', () => {
     console.log('[Server] SIGTERM received. Shutting down gracefully...');
     server.close(() => {

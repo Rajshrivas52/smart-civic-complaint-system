@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Wrench, 
   Bell, 
@@ -20,6 +22,8 @@ const DepartmentHeader = ({
   unreadCount = 3,
   toggleSidebar 
 }) => {
+  const navigate = useNavigate();
+  const { logoutUser } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -134,7 +138,7 @@ const DepartmentHeader = ({
                 <button className="dropdown-menu-item" onClick={() => setShowProfileMenu(false)}>
                   <User size={15} /> Staff Profile Settings
                 </button>
-                <button className="dropdown-menu-item text-danger" onClick={() => setShowProfileMenu(false)}>
+                <button className="dropdown-menu-item text-danger" onClick={() => { setShowProfileMenu(false); logoutUser(); navigate('/login'); }}>
                   Log out of Department
                 </button>
               </div>

@@ -1,6 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
+// Auth Context & Route Protection
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
 // Layouts
 import MainLayout from './layouts/MainLayout';
 import CitizenLayout from './layouts/CitizenLayout';
@@ -35,59 +39,89 @@ import DepartmentDashboard from './pages/department/DepartmentDashboard';
 import AssignedComplaints from './pages/department/AssignedComplaints';
 import RoadMaintenanceDashboard from './pages/department/RoadMaintenanceDashboard';
 
-// Placeholders for missing routes
-const NotificationsPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>Citizen Notifications</h2><p style={{ color: 'var(--text-muted)' }}>No unread notifications.</p></div>;
-const ProfilePlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>Citizen Profile</h2><p style={{ color: 'var(--text-muted)' }}>Account settings and profile info.</p></div>;
-
-const AdminMapPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>GIS Interactive Complaint Map</h2><p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Leaflet + OpenStreetMap integration module interface.</p></div>;
-const AdminNotificationsPlaceholder = () => <div className="card" style={{ padding: '2rem' }}><h2>Admin Notifications Center</h2><p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>System notifications and department escalation logs.</p></div>;
-
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* Main/Public Routes */}
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Landing />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Main/Public Routes */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Landing />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
 
-          {/* Department Routes */}
-          <Route path="department/dashboard" element={<RoadMaintenanceDashboard />} />
-          <Route path="department/road-maintenance/dashboard" element={<RoadMaintenanceDashboard />} />
-          <Route path="department/complaints" element={<AssignedComplaints />} />
-        </Route>
+            {/* Department Routes wrapped with ProtectedRoute */}
+            <Route 
+              path="department/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['department']}>
+                  <RoadMaintenanceDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="department/road-maintenance/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['department']}>
+                  <RoadMaintenanceDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="department/complaints" 
+              element={
+                <ProtectedRoute allowedRoles={['department']}>
+                  <AssignedComplaints />
+                </ProtectedRoute>
+              } 
+            />
+          </Route>
 
-        {/* Citizen Routes wrapped in CitizenLayout */}
-        <Route path="/citizen" element={<CitizenLayout />}>
-          <Route path="dashboard" element={<CitizenDashboard />} />
-          <Route path="report" element={<ReportComplaint />} />
-          <Route path="my-complaints" element={<MyComplaints />} />
-          <Route path="complaints" element={<MyComplaints />} />
-          <Route path="complaints/:id" element={<ComplaintDetails />} />
-          <Route path="notifications" element={<CitizenNotifications />} />
-          <Route path="complaint-map" element={<ComplaintMap />} />
-          <Route path="profile" element={<CitizenProfile />} />
-          <Route path="profile/:tab" element={<CitizenProfile />} />
-          <Route path="help-support" element={<HelpSupport />} />
-        </Route>
+          {/* Citizen Routes wrapped in CitizenLayout & ProtectedRoute */}
+          <Route 
+            path="/citizen" 
+            element={
+              <ProtectedRoute allowedRoles={['citizen']}>
+                <CitizenLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<CitizenDashboard />} />
+            <Route path="report" element={<ReportComplaint />} />
+            <Route path="my-complaints" element={<MyComplaints />} />
+            <Route path="complaints" element={<MyComplaints />} />
+            <Route path="complaints/:id" element={<ComplaintDetails />} />
+            <Route path="notifications" element={<CitizenNotifications />} />
+            <Route path="complaint-map" element={<ComplaintMap />} />
+            <Route path="profile" element={<CitizenProfile />} />
+            <Route path="profile/:tab" element={<CitizenProfile />} />
+            <Route path="help-support" element={<HelpSupport />} />
+          </Route>
 
-        {/* Admin Routes wrapped in AdminLayout */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="complaints" element={<AllComplaints />} />
-          <Route path="complaints/:id" element={<ComplaintDetails />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="map" element={<ComplaintMap />} />
-          <Route path="complaint-map" element={<ComplaintMap />} />
-          <Route path="users" element={<Users />} />
-          <Route path="departments" element={<Departments />} />
-          <Route path="notifications" element={<Notifications />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="help-support" element={<HelpSupport />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* Admin Routes wrapped in AdminLayout & ProtectedRoute */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="complaints" element={<AllComplaints />} />
+            <Route path="complaints/:id" element={<ComplaintDetails />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="map" element={<ComplaintMap />} />
+            <Route path="complaint-map" element={<ComplaintMap />} />
+            <Route path="users" element={<Users />} />
+            <Route path="departments" element={<Departments />} />
+            <Route path="notifications" element={<Notifications />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="help-support" element={<HelpSupport />} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

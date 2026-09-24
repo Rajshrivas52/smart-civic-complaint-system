@@ -1,10 +1,42 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ShieldCheck, MapPin, Zap, ArrowRight, Activity, BarChart } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ShieldCheck, MapPin, Zap, ArrowRight, Activity } from 'lucide-react';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
+import { useAuth } from '../../context/AuthContext';
 
 const Landing = () => {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleTrackComplaintClick = (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login', {
+        state: {
+          from: '/citizen/dashboard',
+          message: 'Authentication required: Please sign in or register to track your complaints.'
+        }
+      });
+    } else {
+      navigate('/citizen/dashboard');
+    }
+  };
+
+  const handleReportProblemClick = (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      navigate('/login', {
+        state: {
+          from: '/citizen/report',
+          message: 'Authentication required: Please sign in or register to report a new issue.'
+        }
+      });
+    } else {
+      navigate('/citizen/report');
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       {/* Hero Section */}
@@ -25,16 +57,18 @@ const Landing = () => {
             An AI-enabled civic complaint management system that categorizes, prioritizes, and routes public issues to the right department for faster resolution.
           </p>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/register" style={{ textDecoration: 'none' }}>
-              <Button style={{ padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'white', color: 'var(--primary)' }}>
-                Report a Problem <ArrowRight size={20} />
-              </Button>
-            </Link>
-            <Link to="/citizen/dashboard" style={{ textDecoration: 'none' }}>
-              <Button style={{ padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
-                Track Complaint
-              </Button>
-            </Link>
+            <Button 
+              onClick={handleReportProblemClick}
+              style={{ padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'white', color: 'var(--primary)' }}
+            >
+              Report a Problem <ArrowRight size={20} />
+            </Button>
+            <Button 
+              onClick={handleTrackComplaintClick}
+              style={{ padding: '1rem 2rem', fontSize: '1.1rem', backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
+            >
+              Track Complaint
+            </Button>
           </div>
         </div>
       </section>

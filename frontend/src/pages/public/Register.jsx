@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { UserPlus, AlertCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Select from '../../components/Select';
-import { register } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const Register = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { registerUser } = useAuth();
+
+  const redirectMessage = location.state?.message;
+  const redirectFrom = location.state?.from;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -48,7 +53,7 @@ const Register = () => {
     setLoading(true);
 
     try {
-      const data = await register({
+      const data = await registerUser({
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
@@ -60,6 +65,20 @@ const Register = () => {
 
       setTimeout(() => {
         const role = (data.user?.role || formData.role || '').toLowerCase();
+        
+        if (redirectFrom) {
+          if (redirectFrom.startsWith('/admin') && role !== 'admin') {
+            navigate('/citizen/dashboard');
+            return;
+          }
+          if (redirectFrom.startsWith('/department') && role !== 'department' && role !== 'admin') {
+            navigate('/citizen/dashboard');
+            return;
+          }
+          navigate(redirectFrom);
+          return;
+        }
+
         if (role === 'admin') {
           navigate('/admin/dashboard');
         } else if (role === 'department') {
@@ -82,6 +101,26 @@ const Register = () => {
           <h1 style={{ fontSize: '1.75rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Create an Account</h1>
           <p style={{ color: 'var(--text-muted)' }}>Join us to report and track civic issues</p>
         </div>
+
+        {/* Redirect / Auth Guard Message */}
+        {redirectMessage && !error && !success && (
+          <div style={{
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            color: '#b45309',
+            padding: '0.85rem 1rem',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '1.25rem',
+            fontSize: '0.875rem',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontWeight: '500'
+          }}>
+            <ShieldAlert size={18} style={{ flexShrink: 0, color: '#f59e0b' }} />
+            <span>{redirectMessage}</span>
+          </div>
+        )}
 
         {error && (
           <div style={{
@@ -156,9 +195,9 @@ const Register = () => {
             value={formData.role}
             onChange={handleChange}
             options={[
-              { value: 'citizen', label: 'Citizen (Report & Track Issues)' },
-              { value: 'department', label: 'Department Staff (Resolve Assigned Complaints)' },
-              { value: 'admin', label: 'Administrator (Manage System & Routing)' }
+              { value: 'citizen', label: 'Citizen' },
+              { value: 'admin', label: 'Admin' },
+              { value: 'department', label: 'Department' }
             ]}
             required
           />
@@ -195,7 +234,7 @@ const Register = () => {
         </form>
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.95rem' }}>
-          Already have an account? <Link to="/login" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}>Sign in</Link>
+          Already have an account? <Link to="/login" state={{ from: redirectFrom, message: redirectMessage }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}>Login</Link>
         </p>
       </Card>
     </div>

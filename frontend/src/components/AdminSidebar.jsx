@@ -13,8 +13,16 @@ import {
   LogOut,
   ShieldAlert
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const AdminSidebar = ({ isOpen, toggleSidebar }) => {
+  const { logoutUser } = useAuth();
+
+  const handleLogout = () => {
+    logoutUser();
+    if (isOpen && toggleSidebar) toggleSidebar();
+  };
+
   const navItems = [
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/complaints', icon: FileText, label: 'All Complaints' },
@@ -80,11 +88,7 @@ const AdminSidebar = ({ isOpen, toggleSidebar }) => {
             to="/login" 
             className="sidebar-link" 
             style={{ color: 'var(--danger)' }}
-            onClick={() => {
-              localStorage.removeItem('civic_token');
-              localStorage.removeItem('civic_user');
-              if (isOpen) toggleSidebar();
-            }}
+            onClick={handleLogout}
           >
             <LogOut size={18} />
             <span>Logout</span>
