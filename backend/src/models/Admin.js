@@ -1,15 +1,15 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { USER_ROLES, USER_STATUSES } from '../constants/civicConstants.js';
+import { USER_STATUSES } from '../constants/civicConstants.js';
 
-const userActivitySchema = new mongoose.Schema({
+const adminActivitySchema = new mongoose.Schema({
   desc: { type: String, required: true },
   time: { type: String },
   timestamp: { type: Date, default: Date.now }
 }, { _id: true });
 
-const userSchema = new mongoose.Schema({
-  userId: {
+const adminSchema = new mongoose.Schema({
+  adminId: {
     type: String,
     unique: true,
     sparse: true
@@ -29,49 +29,19 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
+    default: '',
     trim: true
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
     minlength: 6,
-    select: false // Do not return password by default in queries
+    select: false
   },
   role: {
     type: String,
-    enum: USER_ROLES,
-    default: 'citizen',
+    default: 'admin',
     lowercase: true
-  },
-  department: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Department',
-    default: null
-  },
-  departmentName: {
-    type: String,
-    default: null
-  },
-  area: {
-    type: String,
-    default: 'City Center'
-  },
-  city: {
-    type: String,
-    default: 'Gwalior'
-  },
-  state: {
-    type: String,
-    default: 'Madhya Pradesh'
-  },
-  ward: {
-    type: String,
-    default: 'Ward 12 - Central Gwalior'
-  },
-  language: {
-    type: String,
-    default: 'English'
   },
   status: {
     type: String,
@@ -82,25 +52,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-  complaintCount: {
-    type: Number,
-    default: 0
-  },
-  resolvedComplaints: {
-    type: Number,
-    default: 0
-  },
-  activity: [userActivitySchema],
+  activity: [adminActivitySchema],
   lastActive: {
     type: Date,
     default: Date.now
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'admins'
 });
 
 // Pre-save hook: Hash password before saving if modified
-userSchema.pre('save', async function (next) {
+adminSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
@@ -112,9 +75,9 @@ userSchema.pre('save', async function (next) {
 });
 
 // Instance method: Compare password
-userSchema.methods.comparePassword = async function (enteredPassword) {
+adminSchema.methods.comparePassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
-export default User;
+const Admin = mongoose.model('Admin', adminSchema);
+export default Admin;

@@ -1,12 +1,10 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import { connectDB } from '../config/db.js';
-import User from '../models/User.js';
+import Citizen from '../models/Citizen.js';
+import Admin from '../models/Admin.js';
 import Department from '../models/Department.js';
-import Complaint from '../models/Complaint.js';
-import Notification from '../models/Notification.js';
 import Setting from '../models/Setting.js';
-
 
 const defaultDepartments = [
   {
@@ -17,6 +15,8 @@ const defaultDepartments = [
     head: 'Rajesh Verma',
     phone: '+91 98765 43210',
     email: 'road@smartcivic.gov.in',
+    password: 'Dept@123',
+    role: 'department',
     officeLocation: 'Zone 1 Municipal Workshop, Thatipur, Gwalior',
     status: 'Active',
     iconName: 'Construction',
@@ -35,6 +35,8 @@ const defaultDepartments = [
     head: 'Pooja Deshmukh',
     phone: '+91 98221 54321',
     email: 'sanitation@smartcivic.gov.in',
+    password: 'Dept@123',
+    role: 'department',
     officeLocation: 'Solid Waste Management Center, City Centre, Gwalior',
     status: 'Active',
     iconName: 'Trash2',
@@ -53,6 +55,8 @@ const defaultDepartments = [
     head: 'Kunal Singhania',
     phone: '+91 97555 88990',
     email: 'electricity@smartcivic.gov.in',
+    password: 'Dept@123',
+    role: 'department',
     officeLocation: 'Power Grid Substation, Morar, Gwalior',
     status: 'Active',
     iconName: 'Lightbulb',
@@ -64,16 +68,18 @@ const defaultDepartments = [
   }
 ];
 
-const defaultUsers = [
+const defaultAdmins = [
   {
     name: 'System Admin',
     email: 'admin@civis.gov',
     phone: '+91 98765 43210',
     password: 'Admin@123',
     role: 'admin',
-    area: 'City Center',
     status: 'Active'
-  },
+  }
+];
+
+const defaultCitizens = [
   {
     name: 'Raj Kumar',
     email: 'raj@example.com',
@@ -93,23 +99,12 @@ const defaultUsers = [
     status: 'Active'
   },
   {
-    name: 'Jane Smith (Roads)',
-    email: 'jane@roads.civis.gov',
-    phone: '+91 98333 44556',
-    password: 'Dept@123',
-    role: 'department',
-    departmentName: 'Road Maintenance',
-    area: 'Thatipur',
-    status: 'Active'
-  },
-  {
-    name: 'John Doe (Sanitation)',
-    email: 'john@water.civis.gov',
-    phone: '+91 98444 55667',
-    password: 'Dept@123',
-    role: 'department',
-    departmentName: 'Sanitation',
-    area: 'City Center',
+    name: 'Ramu',
+    email: 'ramu@gmail.com',
+    phone: '+91 98999 88776',
+    password: 'Citizen@123',
+    role: 'citizen',
+    area: 'Morar',
     status: 'Active'
   }
 ];
@@ -131,33 +126,36 @@ export const seedDatabase = async () => {
       console.log('[Seeder] Created default system settings.');
     }
 
-    // 2. Seed Departments
+    // 2. Seed Departments in `departments` collection
     for (const dept of defaultDepartments) {
       const exists = await Department.findOne({ code: dept.code });
       if (!exists) {
         await Department.create(dept);
         console.log(`[Seeder] Seeded department: ${dept.name} (${dept.code})`);
+      } else if (!exists.password) {
+        exists.password = dept.password;
+        exists.email = dept.email;
+        exists.role = 'department';
+        await exists.save();
+        console.log(`[Seeder] Updated credentials for department: ${dept.name}`);
       }
     }
 
-    // Map departments to assign ID references to department staff
-    const roadDept = await Department.findOne({ code: 'ROAD' });
-    const saniDept = await Department.findOne({ code: 'SANI' });
-
-    // 3. Seed Users
-    for (const user of defaultUsers) {
-      const exists = await User.findOne({ email: user.email });
+    // 3. Seed Admins in `admins` collection
+    for (const admin of defaultAdmins) {
+      const exists = await Admin.findOne({ email: admin.email });
       if (!exists) {
-        let userToCreate = { ...user };
-        if (user.role === 'department') {
-          if (user.departmentName === 'Road Maintenance' && roadDept) {
-            userToCreate.department = roadDept._id;
-          } else if (user.departmentName === 'Sanitation' && saniDept) {
-            userToCreate.department = saniDept._id;
-          }
-        }
-        await User.create(userToCreate);
-        console.log(`[Seeder] Seeded user: ${user.name} (${user.email}) [${user.role}]`);
+        await Admin.create(admin);
+        console.log(`[Seeder] Seeded admin: ${admin.name} (${admin.email})`);
+      }
+    }
+
+    // 4. Seed Citizens in `citizens` collection
+    for (const citizen of defaultCitizens) {
+      const exists = await Citizen.findOne({ email: citizen.email });
+      if (!exists) {
+        await Citizen.create(citizen);
+        console.log(`[Seeder] Seeded citizen: ${citizen.name} (${citizen.email})`);
       }
     }
 

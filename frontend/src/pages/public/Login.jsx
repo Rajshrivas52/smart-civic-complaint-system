@@ -7,19 +7,19 @@ import Button from '../../components/Button';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
   const navigate = useNavigate();
   const location = useLocation();
   const { loginUser } = useAuth();
 
   const redirectMessage = location.state?.message;
   const redirectFrom = location.state?.from;
+
+  const [email, setEmail] = useState(() => location.state?.email || '');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -78,7 +78,7 @@ const Login = () => {
         </div>
 
         {/* Redirect / Auth Guard Message */}
-        {redirectMessage && !error && !success && (
+        {redirectMessage && !error && !success && !redirectMessage.toLowerCase().includes('successful') && (
           <div style={{
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
             color: '#b45309',
@@ -115,7 +115,7 @@ const Login = () => {
           </div>
         )}
 
-        {success && (
+        {(success || (redirectMessage && redirectMessage.toLowerCase().includes('successful'))) && (
           <div style={{
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             color: '#059669',
@@ -129,7 +129,7 @@ const Login = () => {
             gap: '0.5rem'
           }}>
             <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
-            <span>{success}</span>
+            <span>{success || redirectMessage}</span>
           </div>
         )}
 
@@ -213,7 +213,7 @@ const Login = () => {
               type="button"
               className="btn btn-outline"
               style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-              onClick={() => fillDemoAccount('jane@roads.civis.gov', 'Dept@123')}
+              onClick={() => fillDemoAccount('road@smartcivic.gov.in', 'Dept@123')}
             >
               Roads Dept
             </button>

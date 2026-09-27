@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { getUserProfile, updateUserProfile } from '../../services/api';
 import {
   User,
   Shield,
@@ -65,6 +67,7 @@ const categoryDistribution = [
 const CitizenProfile = () => {
   const navigate = useNavigate();
   const { tab: urlTab } = useParams();
+  const { setUser: setAuthUser } = useAuth();
 
   // Active Tab state ('personal' | 'security' | 'notifications' | 'activity')
   const [activeTab, setActiveTab] = useState(urlTab || 'personal');
@@ -91,20 +94,66 @@ const CitizenProfile = () => {
     }, 3500);
   };
 
+  // Loading & Error States
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // 1. Personal Information State
   const [profileData, setProfileData] = useState({
-    fullName: 'Raj Shrivas',
-    email: 'raj@example.com',
-    phone: '+91 98765 43210',
-    city: 'Gwalior',
-    state: 'Madhya Pradesh',
-    ward: 'Ward 12 - Central Gwalior',
+    fullName: '',
+    email: '',
+    phone: '',
+    city: '',
+    state: '',
+    ward: '',
     language: 'English',
-    avatar: null
+    avatar: null,
+    createdAt: null,
+    role: 'citizen',
+    status: 'Active'
   });
 
   const [formErrors, setFormErrors] = useState({});
   const [isEditing, setIsEditing] = useState(false);
+
+  // Fetch real authenticated user profile from MongoDB
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getUserProfile();
+      if (data && data.user) {
+        const u = data.user;
+        setProfileData({
+          fullName: u.name || '',
+          email: u.email || '',
+          phone: u.phone || '',
+          city: u.city || 'Gwalior',
+          state: u.state || 'Madhya Pradesh',
+          ward: u.ward || u.area || 'Ward 12 - Central Gwalior',
+          language: u.language || 'English',
+          avatar: u.avatar || null,
+          createdAt: u.createdAt || null,
+          role: u.role || 'citizen',
+          status: u.status || 'Active'
+        });
+        if (setAuthUser) {
+          setAuthUser(u);
+        }
+      } else {
+        throw new Error('Invalid response received from server.');
+      }
+    } catch (err) {
+      console.error('Failed to fetch user profile:', err);
+      setError('Unable to load your profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
@@ -113,18 +162,41 @@ const CitizenProfile = () => {
     }
   };
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      triggerToast('Image size must be under 5MB', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result;
+      setProfileData(prev => ({ ...prev, avatar: base64String }));
+      try {
+        const res = await updateUserProfile({ avatar: base64String });
+        if (res && res.user && setAuthUser) {
+          setAuthUser(res.user);
+        }
+        triggerToast('Profile photo updated successfully!');
+      } catch (err) {
+        triggerToast('Failed to update profile photo.', 'error');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const validatePersonalForm = () => {
     const errors = {};
     if (!profileData.fullName.trim()) errors.fullName = 'Full Name is required.';
-    if (!profileData.email.trim() || !/\S+@\S+\.\S+/.test(profileData.email)) {
-      errors.email = 'Please enter a valid email address.';
-    }
     if (!profileData.phone.trim()) errors.phone = 'Phone number is required.';
     if (!profileData.city.trim()) errors.city = 'City is required.';
     return errors;
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     const errors = validatePersonalForm();
     if (Object.keys(errors).length > 0) {
@@ -132,8 +204,44 @@ const CitizenProfile = () => {
       triggerToast('Please fix the errors before saving.', 'error');
       return;
     }
-    setIsEditing(false);
-    triggerToast('Profile updated successfully! Personal information saved.');
+
+    try {
+      const payload = {
+        name: profileData.fullName,
+        phone: profileData.phone,
+        city: profileData.city,
+        state: profileData.state,
+        ward: profileData.ward,
+        language: profileData.language,
+        avatar: profileData.avatar
+      };
+
+      const res = await updateUserProfile(payload);
+      if (res && res.user) {
+        const u = res.user;
+        setProfileData(prev => ({
+          ...prev,
+          fullName: u.name,
+          email: u.email,
+          phone: u.phone,
+          city: u.city,
+          state: u.state,
+          ward: u.ward,
+          language: u.language,
+          avatar: u.avatar
+        }));
+        if (setAuthUser) {
+          setAuthUser(u);
+        }
+        setIsEditing(false);
+        triggerToast('Profile updated successfully');
+      } else {
+        triggerToast('Failed to update profile. Please try again.', 'error');
+      }
+    } catch (err) {
+      console.error('Save profile error:', err);
+      triggerToast(err.message || 'Unable to update profile. Please try again.', 'error');
+    }
   };
 
   // 2. Account Security State & Modals
@@ -253,6 +361,36 @@ const CitizenProfile = () => {
     }, 2000);
   };
 
+  if (loading) {
+    return (
+      <div className="citizen-profile-page animate-fade-in" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '350px', gap: '1.25rem' }}>
+          <div style={{ width: '48px', height: '48px', borderWidth: '4px', borderStyle: 'solid', borderColor: '#4f46e5 transparent #4f46e5 transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p style={{ color: '#475569', fontSize: '1.1rem', fontWeight: 500 }}>Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="citizen-profile-page animate-fade-in" style={{ padding: '2rem' }}>
+        <div style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '16px', padding: '3rem 2rem', textAlign: 'center', maxWidth: '520px', margin: '4rem auto', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }}>
+          <AlertTriangle size={52} style={{ color: '#e11d48', margin: '0 auto 1.25rem auto' }} />
+          <h3 style={{ color: '#9f1239', fontSize: '1.35rem', marginBottom: '0.75rem', fontWeight: 700 }}>
+            Unable to load your profile. Please try again.
+          </h3>
+          <p style={{ color: '#881337', fontSize: '0.95rem', marginBottom: '1.75rem' }}>
+            {error}
+          </p>
+          <button className="btn btn-primary" onClick={fetchUserProfile}>
+            Retry Loading Profile
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="citizen-profile-page animate-fade-in">
       {/* Toast Feedback */}
@@ -282,22 +420,30 @@ const CitizenProfile = () => {
       <section className="profile-overview-card">
         <div className="overview-left">
           <div className="avatar-wrapper">
-            <div className="profile-avatar">
-              {profileData.fullName.split(' ').map(n => n[0]).join('')}
+            <div className="profile-avatar" style={{ overflow: 'hidden' }}>
+              {profileData.avatar ? (
+                <img src={profileData.avatar} alt={profileData.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                (profileData.fullName || 'User').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+              )}
             </div>
             <label className="avatar-upload-btn" title="Upload new photo">
               <Camera size={14} />
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={() => triggerToast('Profile picture updated!')} />
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
             </label>
           </div>
 
           <div className="user-identity">
             <div className="identity-name-row">
-              <h2 className="user-full-name">{profileData.fullName}</h2>
-              <span className="badge badge-primary">Citizen</span>
-              <span className="badge badge-success">
-                <CheckCircle2 size={12} /> Verified Citizen
+              <h2 className="user-full-name">{profileData.fullName || 'Citizen'}</h2>
+              <span className="badge badge-primary">
+                {profileData.role ? profileData.role.charAt(0).toUpperCase() + profileData.role.slice(1) : 'Citizen'}
               </span>
+              {profileData.status === 'Active' && (
+                <span className="badge badge-success">
+                  <CheckCircle2 size={12} /> Verified Citizen
+                </span>
+              )}
             </div>
             <p className="user-email">{profileData.email}</p>
           </div>
@@ -306,12 +452,16 @@ const CitizenProfile = () => {
         <div className="overview-right">
           <div className="meta-info-item">
             <span className="meta-label">Member Since</span>
-            <span className="meta-value">August 2026</span>
+            <span className="meta-value">
+              {profileData.createdAt
+                ? new Date(profileData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                : 'Recently Joined'}
+            </span>
           </div>
           <div className="meta-info-item">
             <span className="meta-label">Location</span>
             <span className="meta-value">
-              <MapPin size={14} /> {profileData.city}, {profileData.state}
+              <MapPin size={14} /> {profileData.city || 'Gwalior'}{profileData.state ? `, ${profileData.state}` : ''}
             </span>
           </div>
           <button
@@ -405,18 +555,17 @@ const CitizenProfile = () => {
 
                   {/* Email */}
                   <div className="form-group">
-                    <label className="form-label">Email Address *</label>
+                    <label className="form-label">Email Address (Read-only)</label>
                     <div className="input-wrapper">
                       <Mail size={16} className="input-icon" />
                       <input
                         type="email"
-                        className={`form-control ${formErrors.email ? 'is-invalid' : ''}`}
+                        className="form-control"
                         value={profileData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        disabled={!isEditing}
+                        disabled={true}
+                        readOnly
                       />
                     </div>
-                    {formErrors.email && <span className="error-text">{formErrors.email}</span>}
                   </div>
 
                   {/* Phone */}
@@ -466,17 +615,14 @@ const CitizenProfile = () => {
                   {/* Ward / Local Area */}
                   <div className="form-group">
                     <label className="form-label">Ward / Local Area</label>
-                    <select
-                      className="form-control select-control"
+                    <input
+                      type="text"
+                      className="form-control"
                       value={profileData.ward}
                       onChange={(e) => handleInputChange('ward', e.target.value)}
                       disabled={!isEditing}
-                    >
-                      <option value="Ward 12 - Central Gwalior">Ward 12 - Central Gwalior</option>
-                      <option value="Ward 04 - Morar North">Ward 04 - Morar North</option>
-                      <option value="Ward 18 - Lashkar West">Ward 18 - Lashkar West</option>
-                      <option value="Ward 22 - City Center">Ward 22 - City Center</option>
-                    </select>
+                      placeholder="e.g. Ward 12 - Central Gwalior"
+                    />
                   </div>
 
                   {/* Preferred Language */}
@@ -759,7 +905,7 @@ const CitizenProfile = () => {
                     <div className="toggle-row">
                       <div>
                         <span className="toggle-label">Email Notifications</span>
-                        <p className="toggle-sub">Send detailed progress updates to raj@example.com.</p>
+                        <p className="toggle-sub">Send detailed progress updates to {profileData.email || 'your registered email'}.</p>
                       </div>
                       <div className="toggle-switch-wrapper">
                         <input

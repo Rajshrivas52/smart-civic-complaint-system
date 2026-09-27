@@ -36,10 +36,17 @@ const Register = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     setError('');
     setSuccess('');
 
     // Client-side validations
+    if (!formData.name.trim() || !formData.phone.trim() || !formData.email.trim() || !formData.password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match. Please re-enter.');
       return;
@@ -61,32 +68,20 @@ const Register = () => {
         password: formData.password
       });
 
-      setSuccess('Registration successful! Redirecting to your dashboard...');
+      if (data && (data.success || data.user || data.token)) {
+        setSuccess('Registration successful. Please login.');
 
-      setTimeout(() => {
-        const role = (data.user?.role || formData.role || '').toLowerCase();
-        
-        if (redirectFrom) {
-          if (redirectFrom.startsWith('/admin') && role !== 'admin') {
-            navigate('/citizen/dashboard');
-            return;
-          }
-          if (redirectFrom.startsWith('/department') && role !== 'department' && role !== 'admin') {
-            navigate('/citizen/dashboard');
-            return;
-          }
-          navigate(redirectFrom);
-          return;
-        }
-
-        if (role === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (role === 'department') {
-          navigate('/department/dashboard');
-        } else {
-          navigate('/citizen/dashboard');
-        }
-      }, 1000);
+        setTimeout(() => {
+          navigate('/login', {
+            state: {
+              message: 'Registration successful. Please login.',
+              email: formData.email
+            }
+          });
+        }, 1200);
+      } else {
+        setError(data?.message || 'Registration failed. Please try again.');
+      }
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {

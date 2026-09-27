@@ -100,10 +100,6 @@ export const register = async (userData) => {
     body: JSON.stringify(userData)
   });
 
-  if (data.token && data.user) {
-    setAuthSession(data.token, data.user);
-  }
-
   return data;
 };
 
@@ -116,6 +112,28 @@ export const getMe = async () => {
   return data;
 };
 
+export const getUserProfile = async () => {
+  const data = await apiRequest('/users/me');
+  if (data.user) {
+    const token = getAuthToken();
+    setAuthSession(token, data.user);
+  }
+  return data;
+};
+
+export const updateUserProfile = async (profileData) => {
+  const data = await apiRequest('/users/me', {
+    method: 'PUT',
+    body: JSON.stringify(profileData)
+  });
+  if (data.user) {
+    const token = getAuthToken();
+    setAuthSession(token, data.user);
+  }
+  return data;
+};
+
 export const logout = () => {
   clearAuthSession();
 };
+

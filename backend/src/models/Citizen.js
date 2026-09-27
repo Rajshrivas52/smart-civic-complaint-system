@@ -1,14 +1,14 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { USER_ROLES, USER_STATUSES } from '../constants/civicConstants.js';
+import { USER_STATUSES } from '../constants/civicConstants.js';
 
-const userActivitySchema = new mongoose.Schema({
+const citizenActivitySchema = new mongoose.Schema({
   desc: { type: String, required: true },
   time: { type: String },
   timestamp: { type: Date, default: Date.now }
 }, { _id: true });
 
-const userSchema = new mongoose.Schema({
+const citizenSchema = new mongoose.Schema({
   userId: {
     type: String,
     unique: true,
@@ -36,22 +36,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
     minlength: 6,
-    select: false // Do not return password by default in queries
+    select: false
   },
   role: {
     type: String,
-    enum: USER_ROLES,
     default: 'citizen',
     lowercase: true
-  },
-  department: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Department',
-    default: null
-  },
-  departmentName: {
-    type: String,
-    default: null
   },
   area: {
     type: String,
@@ -90,17 +80,18 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  activity: [userActivitySchema],
+  activity: [citizenActivitySchema],
   lastActive: {
     type: Date,
     default: Date.now
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'citizens'
 });
 
 // Pre-save hook: Hash password before saving if modified
-userSchema.pre('save', async function (next) {
+citizenSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
@@ -112,9 +103,9 @@ userSchema.pre('save', async function (next) {
 });
 
 // Instance method: Compare password
-userSchema.methods.comparePassword = async function (enteredPassword) {
+citizenSchema.methods.comparePassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
-export default User;
+const Citizen = mongoose.model('Citizen', citizenSchema);
+export default Citizen;

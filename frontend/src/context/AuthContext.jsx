@@ -26,10 +26,6 @@ export const AuthProvider = ({ children }) => {
 
   const registerUser = async (userData) => {
     const data = await apiRegister(userData);
-    if (data.user) {
-      setUser(data.user);
-      setToken(data.token);
-    }
     return data;
   };
 

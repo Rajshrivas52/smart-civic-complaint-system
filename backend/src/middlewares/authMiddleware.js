@@ -1,9 +1,11 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+import Citizen from '../models/Citizen.js';
+import Admin from '../models/Admin.js';
+import Department from '../models/Department.js';
 
 /**
  * Protect routes - Verifies JWT from Authorization Bearer header
- * Attaches authenticated user object to req.user
+ * Attaches authenticated user object from Citizen, Admin, or Department collection to req.user
  */
 export const protect = async (req, res, next) => {
   let token;
@@ -25,7 +27,28 @@ export const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_jwt_secret_smart_civic_2026');
 
-    const user = await User.findById(decoded.id).select('-password');
+    let user = null;
+    const role = (decoded.role || '').toLowerCase();
+
+    if (role === 'citizen') {
+      user = await Citizen.findById(decoded.id).select('-password');
+    } else if (role === 'admin') {
+      user = await Admin.findById(decoded.id).select('-password');
+    } else if (role === 'department') {
+      user = await Department.findById(decoded.id).select('-password');
+    }
+
+    // Fallback sequential search if role-based lookup did not find document
+    if (!user) {
+      user = await Citizen.findById(decoded.id).select('-password');
+    }
+    if (!user) {
+      user = await Admin.findById(decoded.id).select('-password');
+    }
+    if (!user) {
+      user = await Department.findById(decoded.id).select('-password');
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,

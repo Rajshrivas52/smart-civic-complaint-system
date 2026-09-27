@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import { DEPARTMENT_STATUSES } from '../constants/civicConstants.js';
 
 const staffMemberSchema = new mongoose.Schema({
@@ -33,17 +34,27 @@ const departmentSchema = new mongoose.Schema({
   },
   head: {
     type: String,
-    required: [true, 'Department head name is required']
+    default: ''
   },
   phone: {
     type: String,
-    required: [true, 'Contact phone is required']
+    default: ''
   },
   email: {
     type: String,
     required: [true, 'Contact email is required'],
     lowercase: true,
     trim: true
+  },
+  password: {
+    type: String,
+    minlength: 6,
+    select: false
+  },
+  role: {
+    type: String,
+    default: 'department',
+    lowercase: true
   },
   officeLocation: {
     type: String,
@@ -91,8 +102,27 @@ const departmentSchema = new mongoose.Schema({
   },
   staff: [staffMemberSchema]
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'departments'
 });
+
+// Pre-save hook: Hash password before saving if modified
+departmentSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || !this.password) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Instance method: Compare password
+departmentSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false;
+  return bcrypt.compare(enteredPassword, this.password);
+};
 
 const Department = mongoose.model('Department', departmentSchema);
 export default Department;
