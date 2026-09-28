@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { notFoundHandler, errorHandler } from './middlewares/errorMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import complaintRoutes from './routes/complaintRoutes.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +59,7 @@ app.get('/api/health', (req, res) => {
 // 5. API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 
 // 6. Error Handlers

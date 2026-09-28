@@ -29,14 +29,26 @@ const citizenSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
+    default: '',
     trim: true
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: function () {
+      return this.authProvider !== 'google';
+    },
     minlength: 6,
     select: false
+  },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
   },
   role: {
     type: String,
@@ -92,7 +104,7 @@ const citizenSchema = new mongoose.Schema({
 
 // Pre-save hook: Hash password before saving if modified
 citizenSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password') || !this.password) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -104,6 +116,7 @@ citizenSchema.pre('save', async function (next) {
 
 // Instance method: Compare password
 citizenSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return bcrypt.compare(enteredPassword, this.password);
 };
 

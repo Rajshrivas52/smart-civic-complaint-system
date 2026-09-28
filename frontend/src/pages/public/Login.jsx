@@ -4,6 +4,7 @@ import { Eye, EyeOff, LogIn, AlertCircle, CheckCircle2, ShieldAlert } from 'luci
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -186,6 +187,53 @@ const Login = () => {
             <LogIn size={18} /> {loading ? 'Logging in...' : 'Login'}
           </Button>
         </form>
+
+        {/* OR Divider */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          margin: '1.5rem 0',
+          color: 'var(--text-muted)',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+          <span style={{ padding: '0 0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>OR</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+        </div>
+
+        {/* Official Google Identity Services Authentication */}
+        <GoogleAuthButton 
+          text="continue_with"
+          onSuccess={(userData) => {
+            const role = (userData.role || 'citizen').toLowerCase();
+            setSuccess(`Welcome, ${userData.name}! Redirecting...`);
+            setTimeout(() => {
+              if (redirectFrom) {
+                if (redirectFrom.startsWith('/admin') && role !== 'admin') {
+                  navigate('/citizen/dashboard');
+                  return;
+                }
+                if (redirectFrom.startsWith('/department') && role !== 'department' && role !== 'admin') {
+                  navigate('/citizen/dashboard');
+                  return;
+                }
+                navigate(redirectFrom);
+                return;
+              }
+
+              if (role === 'admin') {
+                navigate('/admin/dashboard');
+              } else if (role === 'department') {
+                navigate('/department/dashboard');
+              } else {
+                navigate('/citizen/dashboard');
+              }
+            }, 600);
+          }}
+          onError={(errMsg) => {
+            setError(errMsg);
+          }}
+        />
 
         {/* Demo Quick-Fill Shortcuts */}
         <div style={{ marginTop: '1.5rem', padding: '0.85rem', backgroundColor: 'var(--background)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>

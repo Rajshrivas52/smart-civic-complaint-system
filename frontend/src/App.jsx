@@ -39,10 +39,13 @@ import DepartmentDashboard from './pages/department/DepartmentDashboard';
 import AssignedComplaints from './pages/department/AssignedComplaints';
 import RoadMaintenanceDashboard from './pages/department/RoadMaintenanceDashboard';
 
+import SessionTimeoutModal from './components/SessionTimeoutModal';
+
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <SessionTimeoutModal idleTimeoutMinutes={14} warningDurationSeconds={60} />
         <Routes>
           {/* Main/Public Routes */}
           <Route path="/" element={<MainLayout />}>

@@ -5,6 +5,7 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Select from '../../components/Select';
+import GoogleAuthButton from '../../components/GoogleAuthButton';
 import { useAuth } from '../../context/AuthContext';
 
 const Register = () => {
@@ -227,6 +228,41 @@ const Register = () => {
             <UserPlus size={18} /> {loading ? 'Creating Account...' : 'Register'}
           </Button>
         </form>
+
+        {/* OR Divider */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          margin: '1.5rem 0',
+          color: 'var(--text-muted)',
+          fontSize: '0.85rem'
+        }}>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+          <span style={{ padding: '0 0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>OR</span>
+          <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border)' }} />
+        </div>
+
+        {/* Official Google Identity Services Authentication */}
+        <GoogleAuthButton 
+          text="continue_with"
+          role={formData.role}
+          onSuccess={(userData) => {
+            setSuccess(`Welcome, ${userData.name}! Redirecting...`);
+            setTimeout(() => {
+              const role = (userData.role || 'citizen').toLowerCase();
+              if (role === 'admin') {
+                navigate('/admin/dashboard');
+              } else if (role === 'department') {
+                navigate('/department/dashboard');
+              } else {
+                navigate('/citizen/dashboard');
+              }
+            }, 600);
+          }}
+          onError={(errMsg) => {
+            setError(errMsg);
+          }}
+        />
 
         <p style={{ textAlign: 'center', marginTop: '1.5rem', fontSize: '0.95rem' }}>
           Already have an account? <Link to="/login" state={{ from: redirectFrom, message: redirectMessage }} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: '500' }}>Login</Link>

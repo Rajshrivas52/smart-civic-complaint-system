@@ -1,8 +1,11 @@
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import Citizen from '../models/Citizen.js';
 import Admin from '../models/Admin.js';
 import Department from '../models/Department.js';
 import { USER_ROLES } from '../constants/civicConstants.js';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
  * Generate JWT signed token
@@ -39,7 +42,9 @@ const formatUserResponse = (account) => {
     complaintCount: account.complaintCount || 0,
     resolvedComplaints: account.resolvedComplaints || 0,
     lastActive: account.lastActive,
-    createdAt: account.createdAt
+    createdAt: account.createdAt,
+    authProvider: account.authProvider || 'local',
+    googleId: account.googleId || null
   };
 };
 
@@ -238,6 +243,234 @@ export const login = async (req, res, next) => {
       message: 'Logged in successfully',
       token,
       user: formatUserResponse(account)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Authenticate or register Citizen using verified Google Identity Services ID Token
+ * @route   POST /api/auth/google
+ * @access  Public
+ */
+/**
+ * @desc    Authenticate or register user (Citizen, Admin, or Department) using verified Google Identity Services ID Token
+ * @route   POST /api/auth/google
+ * @access  Public
+ */
+export const googleAuth = async (req, res, next) => {
+  try {
+    const { credential, role } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential / ID token is required.'
+      });
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+
+    // 1. Cryptographically verify Google ID Token using official Google Auth Library
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: clientId || undefined
+      });
+      payload = ticket.getPayload();
+    } catch (verifyError) {
+      console.error('[Google Auth] Verification error:', verifyError.message);
+      return res.status(401).json({
+        success: false,
+        message: `Google authentication failed: ${verifyError.message || 'Invalid or expired ID token'}`
+      });
+    }
+
+    if (!payload || !payload.sub || !payload.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Google identity token. Missing required identity claims.'
+      });
+    }
+
+    const googleSub = payload.sub; // Verified unique permanent Google user ID
+    const googleEmail = payload.email.toLowerCase().trim();
+    const googleName = payload.name ? payload.name.trim() : (payload.given_name || 'User');
+    const googlePicture = payload.picture || null;
+
+    // 2. Search for existing account across collections (Admin -> Department -> Citizen)
+    let account = null;
+
+    // Check Admin collection
+    const admin = await Admin.findOne({
+      $or: [{ googleId: googleSub }, { email: googleEmail }]
+    });
+    if (admin) {
+      account = admin;
+    }
+
+    // Check Department collection if not found in Admin
+    if (!account) {
+      const dept = await Department.findOne({
+        $or: [{ googleId: googleSub }, { email: googleEmail }]
+      });
+      if (dept) {
+        account = dept;
+      }
+    }
+
+    // Check Citizen collection if not found in Admin or Department
+    if (!account) {
+      const citizen = await Citizen.findOne({
+        $or: [{ googleId: googleSub }, { email: googleEmail }]
+      });
+      if (citizen) {
+        account = citizen;
+      }
+    }
+
+    // 3. Handle existing account
+    if (account) {
+      if (account.status === 'Suspended') {
+        return res.status(403).json({
+          success: false,
+          message: `Your ${account.role || 'account'} has been suspended. Please contact municipal administration.`
+        });
+      }
+
+      // Role conflict check: If target role was specified and conflicts with existing account role
+      const targetRole = role ? (role || '').toLowerCase() : null;
+      const existingRole = (account.role || 'citizen').toLowerCase();
+
+      if (targetRole && targetRole !== existingRole) {
+        const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+        return res.status(400).json({
+          success: false,
+          message: `This Google account is already registered as a ${capitalize(existingRole)}. Cannot log in as ${capitalize(targetRole)}.`
+        });
+      }
+
+      let needsSave = false;
+      if (!account.googleId) {
+        account.googleId = googleSub;
+        account.authProvider = 'google';
+        needsSave = true;
+      }
+      if (!account.avatar && googlePicture) {
+        account.avatar = googlePicture;
+        needsSave = true;
+      }
+      account.lastActive = new Date();
+      needsSave = true;
+
+      if (needsSave) {
+        await account.save({ validateBeforeSave: false });
+      }
+
+      const token = generateToken(account);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Google authentication successful',
+        token,
+        user: formatUserResponse(account)
+      });
+    }
+
+    // 4. Handle new Google registration according to selected role
+    const requestedRole = (role || 'citizen').toLowerCase();
+    let newAccount = null;
+
+    if (requestedRole === 'citizen') {
+      const citizenUserId = `CITIZEN-${Date.now().toString().slice(-6)}`;
+      newAccount = await Citizen.create({
+        userId: citizenUserId,
+        name: googleName,
+        email: googleEmail,
+        googleId: googleSub,
+        authProvider: 'google',
+        role: 'citizen',
+        avatar: googlePicture,
+        phone: '',
+        area: 'City Center',
+        city: 'Gwalior',
+        state: 'Madhya Pradesh',
+        ward: 'Ward 12 - Central Gwalior',
+        status: 'Active',
+        activity: [
+          {
+            desc: 'Citizen registered via Google Authentication',
+            time: 'Just now',
+            timestamp: new Date()
+          }
+        ]
+      });
+    } else if (requestedRole === 'admin') {
+      const adminId = `ADM-${Date.now().toString().slice(-6)}`;
+      newAccount = await Admin.create({
+        adminId,
+        name: googleName,
+        email: googleEmail,
+        googleId: googleSub,
+        authProvider: 'google',
+        role: 'admin',
+        avatar: googlePicture,
+        phone: '',
+        status: 'Active',
+        activity: [
+          {
+            desc: 'Admin registered via Google Authentication',
+            time: 'Just now',
+            timestamp: new Date()
+          }
+        ]
+      });
+    } else if (requestedRole === 'department') {
+      const deptId = `DEPT-${Date.now().toString().slice(-6)}`;
+      const baseName = googleName && googleName !== 'User' ? googleName : googleEmail.split('@')[0];
+      const deptName = `${baseName} Department`;
+      const deptCode = (baseName.substring(0, 4) || 'DEPT').toUpperCase();
+
+      let finalDeptName = deptName;
+      let finalDeptCode = deptCode;
+
+      const existingName = await Department.findOne({ name: finalDeptName });
+      if (existingName) {
+        finalDeptName = `${deptName} ${Date.now().toString().slice(-4)}`;
+      }
+      const existingCode = await Department.findOne({ code: finalDeptCode });
+      if (existingCode) {
+        finalDeptCode = `${deptCode}${Date.now().toString().slice(-2)}`;
+      }
+
+      newAccount = await Department.create({
+        departmentId: deptId,
+        name: finalDeptName,
+        code: finalDeptCode,
+        email: googleEmail,
+        googleId: googleSub,
+        authProvider: 'google',
+        role: 'department',
+        head: googleName,
+        phone: '',
+        status: 'Active'
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account role selected.'
+      });
+    }
+
+    const token = generateToken(newAccount);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Google registration successful',
+      token,
+      user: formatUserResponse(newAccount)
     });
   } catch (error) {
     next(error);

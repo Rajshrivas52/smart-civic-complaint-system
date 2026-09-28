@@ -59,6 +59,9 @@ export const apiRequest = async (endpoint, options = {}) => {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (response.status === 401) {
+        clearAuthSession();
+      }
       const error = new Error(data.message || `Request failed with status ${response.status}`);
       error.status = response.status;
       error.data = data;
@@ -85,6 +88,19 @@ export const login = async ({ email, password }) => {
   const data = await apiRequest('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password })
+  });
+
+  if (data.token && data.user) {
+    setAuthSession(data.token, data.user);
+  }
+
+  return data;
+};
+
+export const googleAuth = async (credential, role) => {
+  const data = await apiRequest('/auth/google', {
+    method: 'POST',
+    body: JSON.stringify({ credential, role })
   });
 
   if (data.token && data.user) {
@@ -135,5 +151,37 @@ export const updateUserProfile = async (profileData) => {
 
 export const logout = () => {
   clearAuthSession();
+};
+
+// --------------------------------------------------------------------------
+// Complaint Services
+// --------------------------------------------------------------------------
+
+/**
+ * Search complaints with query string & optional AbortSignal
+ * @param {string} query
+ * @param {AbortSignal} [signal]
+ */
+export const searchComplaints = async (query, signal) => {
+  if (!query || !query.trim()) {
+    return { success: true, count: 0, data: [] };
+  }
+  return apiRequest(`/complaints/search?q=${encodeURIComponent(query.trim())}`, {
+    method: 'GET',
+    signal
+  });
+};
+
+/**
+ * Get complaint details by complaintId or mongo ObjectId
+ * @param {string} id
+ */
+export const getComplaintById = async (id) => {
+  if (!id) {
+    throw new Error('Complaint ID is required');
+  }
+  return apiRequest(`/complaints/${encodeURIComponent(id)}`, {
+    method: 'GET'
+  });
 };
 
