@@ -40,9 +40,10 @@ export const clearAuthSession = () => {
 
 export const apiRequest = async (endpoint, options = {}) => {
   const token = getAuthToken();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {})
   };
@@ -184,4 +185,112 @@ export const getComplaintById = async (id) => {
     method: 'GET'
   });
 };
+
+/**
+ * Submit a new complaint (supports JSON or FormData with file attachment)
+ * @param {Object|FormData} complaintData
+ */
+export const createComplaint = async (complaintData) => {
+  const isFormData = typeof FormData !== 'undefined' && complaintData instanceof FormData;
+  return apiRequest('/complaints', {
+    method: 'POST',
+    body: isFormData ? complaintData : JSON.stringify(complaintData)
+  });
+};
+
+/**
+ * List complaints with query filters and pagination
+ * @param {Object} params
+ */
+export const getComplaints = async (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.append(key, val);
+    }
+  });
+  const queryString = query.toString();
+  return apiRequest(`/complaints${queryString ? `?${queryString}` : ''}`);
+};
+
+/**
+ * Get citizen's own complaints with status summary
+ */
+export const getMyComplaints = async () => {
+  return apiRequest('/complaints/my');
+};
+
+/**
+ * Get aggregated counts for dashboard counters
+ */
+export const getComplaintStats = async () => {
+  return apiRequest('/complaints/stats');
+};
+
+/**
+ * Update complaint status (Department/Admin)
+ * @param {string} id
+ * @param {Object|FormData} statusData
+ */
+export const updateComplaintStatus = async (id, statusData) => {
+  const isFormData = typeof FormData !== 'undefined' && statusData instanceof FormData;
+  return apiRequest(`/complaints/${encodeURIComponent(id)}/status`, {
+    method: 'PUT',
+    body: isFormData ? statusData : JSON.stringify(statusData)
+  });
+};
+
+/**
+ * Reassign complaint to another department (Admin only)
+ * @param {string} id
+ * @param {Object} assignData
+ */
+export const assignComplaint = async (id, assignData) => {
+  return apiRequest(`/complaints/${encodeURIComponent(id)}/assign`, {
+    method: 'PUT',
+    body: JSON.stringify(assignData)
+  });
+};
+
+/**
+ * Submit citizen rating & feedback for resolved complaint
+ * @param {string} id
+ * @param {Object} feedbackData
+ */
+export const submitComplaintFeedback = async (id, feedbackData) => {
+  return apiRequest(`/complaints/${encodeURIComponent(id)}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify(feedbackData)
+  });
+};
+
+// --------------------------------------------------------------------------
+// Notification Services
+// --------------------------------------------------------------------------
+
+export const getNotifications = async (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return apiRequest(`/notifications${query ? `?${query}` : ''}`);
+};
+
+export const markNotificationRead = async (id) => {
+  return apiRequest(`/notifications/${encodeURIComponent(id)}/read`, {
+    method: 'PUT'
+  });
+};
+
+export const markAllNotificationsRead = async () => {
+  return apiRequest('/notifications/read-all', {
+    method: 'PUT'
+  });
+};
+
+// --------------------------------------------------------------------------
+// Department Services
+// --------------------------------------------------------------------------
+
+export const getDepartments = async () => {
+  return apiRequest('/departments');
+};
+
 

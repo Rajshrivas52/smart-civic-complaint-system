@@ -41,6 +41,7 @@ import ComplaintDetailsModal from '../../components/department/ComplaintDetailsM
 import StatusUpdateModal from '../../components/department/StatusUpdateModal';
 import { getDepartmentById, DEPARTMENTS } from '../../utils/departmentConfig';
 import { initialRoadComplaints, initialDepartmentActivities } from '../../utils/mockRoadMaintenanceData';
+import { getComplaints, updateComplaintStatus } from '../../services/api';
 import './RoadMaintenanceDashboard.css';
 
 // Monthly SLA Chart Data
@@ -166,8 +167,52 @@ const RoadMaintenanceDashboard = () => {
     setQueueTab('all');
   };
 
-  // Status Update Handler (Updates React state & appends log to activity feed)
-  const handleSaveStatusUpdate = (updatedPayload) => {
+  // Load real department complaints from backend API
+  React.useEffect(() => {
+    let isMounted = true;
+    const loadDeptComplaints = async () => {
+      try {
+        const res = await getComplaints({ limit: 50 });
+        if (isMounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map(item => ({
+            id: item.complaintId || item._id,
+            _id: item._id,
+            title: item.title,
+            category: item.category,
+            location: `${item.area || 'City Center'}, Gwalior`,
+            address: item.address,
+            submittedDate: (item.createdAt || '').slice(0, 10),
+            priority: item.priority || 'Medium',
+            severity: item.severity || 'Medium',
+            status: item.status || 'Pending',
+            department: item.departmentName || 'Road Maintenance',
+            description: item.description,
+            image: item.image || "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=600",
+            citizenName: item.citizenName || 'Citizen User',
+            citizenPhone: item.citizenPhone || '+91 98000 00000',
+            assignedStaff: activeDepartment.staffName,
+            workRemarks: '',
+            resolutionRemarks: item.resolutionImage ? 'Inspection verified' : '',
+            timeline: item.timeline?.map(t => ({
+              step: t.status,
+              date: t.date ? new Date(t.date).toLocaleString() : '',
+              by: t.updatedByName || 'Officer'
+            })) || []
+          }));
+          setComplaints(mapped);
+        }
+      } catch (err) {
+        console.warn('Backend department complaints fetch skipped:', err.message);
+      }
+    };
+
+    loadDeptComplaints();
+    return () => { isMounted = false; };
+  }, [activeDepartment]);
+
+  // Status Update Handler (Updates React state & persists to backend)
+  const handleSaveStatusUpdate = async (updatedPayload) => {
+    // 1. In-memory optimistic update
     setComplaints(prev => prev.map(c => {
       if (c.id === updatedPayload.id) {
         const newTimeline = [...(c.timeline || [])];
@@ -190,6 +235,17 @@ const RoadMaintenanceDashboard = () => {
       }
       return c;
     }));
+
+    // 2. Call backend status update API
+    try {
+      await updateComplaintStatus(updatedPayload.id, {
+        status: updatedPayload.status,
+        note: updatedPayload.workRemarks || updatedPayload.resolutionRemarks || '',
+        assignedOfficer: updatedPayload.assignedStaff
+      });
+    } catch (apiErr) {
+      console.warn('Failed to update status on backend:', apiErr.message);
+    }
 
     // Add activity log entry
     const newActivity = {

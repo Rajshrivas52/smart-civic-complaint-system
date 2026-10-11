@@ -23,6 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+import { getComplaints, assignComplaint, updateComplaintStatus } from '../../services/api';
 import './AllComplaints.css';
 
 import { 
@@ -166,13 +167,47 @@ const AllComplaints = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Simulate refresh
-  const handleRefresh = () => {
-    setIsLoading(true);
-    setTimeout(() => {
+  // Load real complaints from backend API
+  const fetchAdminComplaints = async () => {
+    try {
+      setIsLoading(true);
+      const res = await getComplaints({ limit: 100 });
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map(item => ({
+          id: item.complaintId || item._id,
+          _id: item._id,
+          title: item.title,
+          description: item.description,
+          citizenName: item.citizenName || 'Citizen User',
+          category: item.category,
+          priority: item.priority || 'Medium',
+          severity: item.severity || 'Medium',
+          department: item.departmentName || 'Unassigned',
+          status: item.status || 'Pending',
+          area: item.area || 'City Center',
+          address: item.address,
+          submittedText: (item.createdAt || '').slice(0, 10),
+          submittedDate: (item.createdAt || '').slice(0, 10),
+          image: item.image,
+          timeline: item.timeline || []
+        }));
+        setComplaints(mapped);
+      }
+    } catch (err) {
+      console.warn('Backend complaints fetch skipped:', err.message);
+    } finally {
       setIsLoading(false);
-      showToast('Complaints refreshed successfully');
-    }, 450);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdminComplaints();
+  }, []);
+
+  // Refresh complaints from backend
+  const handleRefresh = () => {
+    fetchAdminComplaints();
+    showToast('Complaints refreshed successfully');
   };
 
   // Clear all filters
@@ -341,12 +376,19 @@ const AllComplaints = () => {
   };
 
   // Submit Assign Department
-  const handleAssignSubmit = (e) => {
+  const handleAssignSubmit = async (e) => {
     e.preventDefault();
     if (!assignModal.complaint) return;
 
     const updatedDept = assignModal.department;
     const targetId = assignModal.complaint.id;
+    const identifier = assignModal.complaint._id || targetId;
+
+    try {
+      await assignComplaint(identifier, { departmentName: updatedDept });
+    } catch (err) {
+      console.warn('Backend assign call error:', err.message);
+    }
 
     setComplaints(prev => prev.map(item => {
       if (item.id === targetId) {
@@ -375,12 +417,22 @@ const AllComplaints = () => {
   };
 
   // Submit Update Status
-  const handleStatusSubmit = (e) => {
+  const handleStatusSubmit = async (e) => {
     e.preventDefault();
     if (!statusModal.complaint) return;
 
     const updatedStatus = statusModal.status;
     const targetId = statusModal.complaint.id;
+    const identifier = statusModal.complaint._id || targetId;
+
+    try {
+      await updateComplaintStatus(identifier, {
+        status: updatedStatus,
+        note: statusModal.remark
+      });
+    } catch (err) {
+      console.warn('Backend status update error:', err.message);
+    }
 
     setComplaints(prev => prev.map(item => {
       if (item.id === targetId) {

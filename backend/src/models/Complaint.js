@@ -70,7 +70,7 @@ const complaintSchema = new mongoose.Schema({
   },
   citizen: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Citizen',
     required: true,
     index: true
   },
@@ -121,6 +121,15 @@ const complaintSchema = new mongoose.Schema({
     default: null
   },
   timeline: [timelineEntrySchema],
+  feedback: {
+    rating: { type: Number, min: 1, max: 5, default: null },
+    comment: { type: String, default: null },
+    submittedAt: { type: Date, default: null }
+  },
+  resolvedAt: {
+    type: Date,
+    default: null
+  },
   aiAnalysis: {
     detectedCategory: { type: String, default: null },
     detectedPriority: { type: String, default: null },

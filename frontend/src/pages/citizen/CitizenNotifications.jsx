@@ -29,6 +29,7 @@ import {
   RotateCcw,
   SlidersHorizontal
 } from 'lucide-react';
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../services/api';
 import './CitizenNotifications.css';
 
 // Sample 24 Notifications realistic data
@@ -563,12 +564,58 @@ const CitizenNotifications = () => {
     return result;
   }, [notifications, searchQuery, readFilter, typeFilter, sortBy]);
 
+  // Load real notifications from backend API
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchCitizenNotifications = async () => {
+      try {
+        const res = await getNotifications({ limit: 50 });
+        if (isMounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map(item => ({
+            id: item.notificationId || item._id,
+            _id: item._id,
+            title: item.title,
+            description: item.message || item.description,
+            timestamp: (item.createdAt || '').slice(0, 10),
+            date: item.createdAt,
+            type: item.type || 'complaint',
+            category: item.category || 'Complaint Updates',
+            badge: item.priority || 'Info',
+            badgeType: item.priority === 'High' ? 'danger' : 'info',
+            actionText: 'View Details',
+            relatedId: item.relatedId || null,
+            read: Boolean(item.read),
+            department: item.sender || 'Smart Civic System',
+            location: item.area || 'Gwalior',
+            severity: item.priority || 'Medium',
+            iconType: item.type === 'complaint' ? 'check-circle' : 'alert'
+          }));
+          setNotifications(mapped);
+        }
+      } catch (err) {
+        console.warn('Backend notifications fetch skipped:', err.message);
+      }
+    };
+
+    fetchCitizenNotifications();
+    return () => { isMounted = false; };
+  }, []);
+
   // Actions
-  const handleMarkAsRead = (id, e) => {
+  const handleMarkAsRead = async (id, e) => {
     if (e) e.stopPropagation();
     setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     );
+
+    const targetNotif = notifications.find(n => n.id === id);
+    if (targetNotif && (targetNotif._id || targetNotif.id)) {
+      try {
+        await markNotificationRead(targetNotif._id || targetNotif.id);
+      } catch (err) {
+        console.warn('Failed to mark notification as read on backend:', err.message);
+      }
+    }
     showToast('Notification marked as read');
   };
 
@@ -588,8 +635,13 @@ const CitizenNotifications = () => {
     showToast('Notification removed');
   };
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try {
+      await markAllNotificationsRead();
+    } catch (err) {
+      console.warn('Failed to mark all notifications read on backend:', err.message);
+    }
     showToast('All notifications marked as read');
   };
 

@@ -24,6 +24,7 @@ import {
   ThumbsDown,
   Inbox
 } from 'lucide-react';
+import { getMyComplaints, submitComplaintFeedback } from '../../services/api';
 import './MyComplaints.css';
 
 // ============================================================================
@@ -475,12 +476,52 @@ const MyComplaints = () => {
   // Local feedback state for resolved complaints
   const [hoverRating, setHoverRating] = useState(0);
 
-  // Simulated initial mount loading
+  // Fetch complaints from backend API on mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 250);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+
+    const loadCitizenComplaints = async () => {
+      try {
+        const res = await getMyComplaints();
+        if (isMounted && res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const mapped = res.data.map(item => ({
+            id: item.complaintId || item._id,
+            _id: item._id,
+            title: item.title,
+            category: item.category,
+            location: `${item.area || 'City Center'}, Gwalior`,
+            address: item.address,
+            submittedDate: (item.createdAt || '').slice(0, 10),
+            priority: item.priority || 'Medium',
+            status: item.status || 'Pending',
+            department: item.departmentName || 'Unassigned',
+            description: item.description,
+            image: item.image || "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=600",
+            latitude: item.location?.lat || 26.2183,
+            longitude: item.location?.lng || 78.1828,
+            timeline: item.timeline?.map(t => ({
+              title: t.status === 'Pending' ? 'Complaint Submitted' : t.status,
+              date: t.date ? new Date(t.date).toLocaleString() : null,
+              note: t.note
+            })) || [],
+            resolution: item.resolutionImage ? 'Resolution inspection verified' : null,
+            resolvedDate: item.resolvedAt ? String(item.resolvedAt).slice(0, 10) : null,
+            rating: item.feedback?.rating || null,
+            feedbackSatisfied: item.feedback?.rating ? 'yes' : null
+          }));
+          setComplaints(mapped);
+        }
+      } catch (err) {
+        console.warn('Backend complaints fetch skipped, utilizing baseline data:', err.message);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCitizenComplaints();
+    return () => { isMounted = false; };
   }, []);
 
   // Summary counts calculated dynamically
@@ -577,11 +618,24 @@ const MyComplaints = () => {
     selectedDateRange !== 'All Time';
 
   // Handle citizen star rating update
-  const handleSetRating = (score) => {
+  const handleSetRating = async (score) => {
     if (!activeComplaint) return;
     const updated = { ...activeComplaint, rating: score };
     setActiveComplaint(updated);
     setComplaints(prev => prev.map(c => c.id === activeComplaint.id ? updated : c));
+
+    // Persist to backend if it's a real complaint
+    try {
+      const complaintIdentifier = activeComplaint._id || activeComplaint.id;
+      if (complaintIdentifier) {
+        await submitComplaintFeedback(complaintIdentifier, {
+          rating: score,
+          comment: activeComplaint.feedbackSatisfied ? `Citizen marked satisfied: ${activeComplaint.feedbackSatisfied}` : ''
+        });
+      }
+    } catch (feedbackErr) {
+      console.warn('Failed to submit feedback to backend:', feedbackErr.message);
+    }
   };
 
   // Handle satisfaction feedback
