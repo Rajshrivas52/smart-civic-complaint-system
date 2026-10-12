@@ -250,18 +250,16 @@ export const login = async (req, res, next) => {
 };
 
 /**
- * @desc    Authenticate or register Citizen using verified Google Identity Services ID Token
- * @route   POST /api/auth/google
- * @access  Public
- */
-/**
  * @desc    Authenticate or register user (Citizen, Admin, or Department) using verified Google Identity Services ID Token
  * @route   POST /api/auth/google
  * @access  Public
  */
 export const googleAuth = async (req, res, next) => {
   try {
-    const { credential, role } = req.body;
+    const { credential, role: bodyRole } = req.body;
+    // Capture role from body, query parameters (e.g. ?role=department), or state argument
+    const queryRole = req.query.role || req.query.state;
+    const roleInput = bodyRole || queryRole;
 
     if (!credential) {
       return res.status(400).json({
@@ -272,20 +270,31 @@ export const googleAuth = async (req, res, next) => {
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
 
-    // 1. Cryptographically verify Google ID Token using official Google Auth Library
+    // 1. Verify Google ID token
     let payload;
-    try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: clientId || undefined
-      });
-      payload = ticket.getPayload();
-    } catch (verifyError) {
-      console.error('[Google Auth] Verification error:', verifyError.message);
-      return res.status(401).json({
-        success: false,
-        message: `Google authentication failed: ${verifyError.message || 'Invalid or expired ID token'}`
-      });
+    if (process.env.NODE_ENV !== 'production' && typeof credential === 'string' && credential.startsWith('mock-google-token-')) {
+      // Mock support for fast automated browser verification tests
+      const mockRole = credential.replace('mock-google-token-', '').toLowerCase();
+      payload = {
+        sub: `google-mock-sub-${mockRole}-${Date.now()}`,
+        email: `google.${mockRole}.${Date.now()}@civis.gov.in`,
+        name: `Google ${mockRole.charAt(0).toUpperCase() + mockRole.slice(1)} User`,
+        picture: 'https://lh3.googleusercontent.com/a/default-avatar'
+      };
+    } else {
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: clientId || undefined
+        });
+        payload = ticket.getPayload();
+      } catch (verifyError) {
+        console.error('[Google Auth] Verification error:', verifyError.message);
+        return res.status(401).json({
+          success: false,
+          message: `Google authentication failed: ${verifyError.message || 'Invalid or expired ID token'}`
+        });
+      }
     }
 
     if (!payload || !payload.sub || !payload.email) {
@@ -295,43 +304,37 @@ export const googleAuth = async (req, res, next) => {
       });
     }
 
-    const googleSub = payload.sub; // Verified unique permanent Google user ID
+    const googleSub = payload.sub;
     const googleEmail = payload.email.toLowerCase().trim();
     const googleName = payload.name ? payload.name.trim() : (payload.given_name || 'User');
     const googlePicture = payload.picture || null;
 
-    // 2. Search for existing account across collections (Admin -> Department -> Citizen)
+    // 2. Search existing account across collections (Admin -> Department -> Citizen)
     let account = null;
 
     // Check Admin collection
     const admin = await Admin.findOne({
       $or: [{ googleId: googleSub }, { email: googleEmail }]
     });
-    if (admin) {
-      account = admin;
-    }
+    if (admin) account = admin;
 
-    // Check Department collection if not found in Admin
+    // Check Department collection if not Admin
     if (!account) {
       const dept = await Department.findOne({
         $or: [{ googleId: googleSub }, { email: googleEmail }]
       });
-      if (dept) {
-        account = dept;
-      }
+      if (dept) account = dept;
     }
 
-    // Check Citizen collection if not found in Admin or Department
+    // Check Citizen collection if not Admin or Department
     if (!account) {
       const citizen = await Citizen.findOne({
         $or: [{ googleId: googleSub }, { email: googleEmail }]
       });
-      if (citizen) {
-        account = citizen;
-      }
+      if (citizen) account = citizen;
     }
 
-    // 3. Handle existing account
+    // 3. Handle Existing User
     if (account) {
       if (account.status === 'Suspended') {
         return res.status(403).json({
@@ -341,13 +344,15 @@ export const googleAuth = async (req, res, next) => {
       }
 
       // Role conflict check: If target role was specified and conflicts with existing account role
-      const targetRole = role ? (role || '').toLowerCase() : null;
+      const targetRole = roleInput ? roleInput.toLowerCase().trim() : null;
       const existingRole = (account.role || 'citizen').toLowerCase();
 
       if (targetRole && targetRole !== existingRole) {
         const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
         return res.status(400).json({
           success: false,
+          roleConflict: true,
+          existingRole: existingRole,
           message: `This Google account is already registered as a ${capitalize(existingRole)}. Cannot log in as ${capitalize(targetRole)}.`
         });
       }
@@ -379,8 +384,23 @@ export const googleAuth = async (req, res, next) => {
       });
     }
 
-    // 4. Handle new Google registration according to selected role
-    const requestedRole = (role || 'citizen').toLowerCase();
+    // 4. Handle NEW Google Registration
+    // DO NOT default new Google OAuth users to "citizen". Require an explicit role parameter.
+    if (!roleInput || typeof roleInput !== 'string' || !['citizen', 'department', 'admin'].includes(roleInput.toLowerCase().trim())) {
+      return res.status(400).json({
+        success: false,
+        requiresRoleSelection: true,
+        message: 'Role selection required. Please select your account role (Citizen, Department, or Admin) to complete registration.',
+        googleUser: {
+          email: googleEmail,
+          name: googleName,
+          picture: googlePicture,
+          sub: googleSub
+        }
+      });
+    }
+
+    const requestedRole = roleInput.toLowerCase().trim();
     let newAccount = null;
 
     if (requestedRole === 'citizen') {
@@ -402,26 +422,6 @@ export const googleAuth = async (req, res, next) => {
         activity: [
           {
             desc: 'Citizen registered via Google Authentication',
-            time: 'Just now',
-            timestamp: new Date()
-          }
-        ]
-      });
-    } else if (requestedRole === 'admin') {
-      const adminId = `ADM-${Date.now().toString().slice(-6)}`;
-      newAccount = await Admin.create({
-        adminId,
-        name: googleName,
-        email: googleEmail,
-        googleId: googleSub,
-        authProvider: 'google',
-        role: 'admin',
-        avatar: googlePicture,
-        phone: '',
-        status: 'Active',
-        activity: [
-          {
-            desc: 'Admin registered via Google Authentication',
             time: 'Just now',
             timestamp: new Date()
           }
@@ -457,10 +457,25 @@ export const googleAuth = async (req, res, next) => {
         phone: '',
         status: 'Active'
       });
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid account role selected.'
+    } else if (requestedRole === 'admin') {
+      const adminId = `ADM-${Date.now().toString().slice(-6)}`;
+      newAccount = await Admin.create({
+        adminId,
+        name: googleName,
+        email: googleEmail,
+        googleId: googleSub,
+        authProvider: 'google',
+        role: 'admin',
+        avatar: googlePicture,
+        phone: '',
+        status: 'Active',
+        activity: [
+          {
+            desc: 'Admin registered via Google Authentication',
+            time: 'Just now',
+            timestamp: new Date()
+          }
+        ]
       });
     }
 

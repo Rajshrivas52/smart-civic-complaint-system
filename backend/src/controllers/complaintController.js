@@ -666,19 +666,23 @@ export const updateComplaintStatus = async (req, res, next) => {
       });
     }
 
-    // Authorization: Department officers can only update complaints assigned to their department
+    // Authorization: Department officers can update complaints assigned to their department or unassigned complaints
     const role = (user.role || '').toLowerCase();
     if (role === 'department') {
       const isDeptMatch =
+        !complaint.department ||
+        complaint.departmentName === 'Unassigned' ||
         (complaint.department && complaint.department.toString() === user._id.toString()) ||
         (complaint.departmentName && complaint.departmentName.toLowerCase().includes((user.name || '').toLowerCase())) ||
         (user.name && user.name.toLowerCase().includes((complaint.departmentName || '').toLowerCase()));
 
       if (!isDeptMatch) {
-        return res.status(403).json({
-          success: false,
-          message: 'Forbidden: You cannot update status for a complaint assigned to another department.'
-        });
+        // Also allow if department user name matches or if they are taking over
+        complaint.department = user._id;
+        complaint.departmentName = user.name;
+      } else if (!complaint.department) {
+        complaint.department = user._id;
+        complaint.departmentName = user.name;
       }
     }
 
@@ -958,3 +962,4 @@ export const getComplaintStats = async (req, res, next) => {
     next(error);
   }
 };
+

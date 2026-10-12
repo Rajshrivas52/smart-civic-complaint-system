@@ -22,21 +22,31 @@ const GoogleAuthButton = ({ onSuccess, onError, text = 'continue_with', role }) 
 
     try {
       setLoading(true);
-      const data = await loginWithGoogle(response.credential, role);
+      const urlParams = new URLSearchParams(window.location.search);
+      const effectiveRole = role || urlParams.get('role') || null;
+
+      const data = await loginWithGoogle(response.credential, effectiveRole);
       if (data && data.success) {
         if (onSuccess) {
           onSuccess(data.user);
         }
+      } else if (data && data.requiresRoleSelection) {
+        if (onError) onError(data, { requiresRoleSelection: true, credential: response.credential });
       } else {
         if (onError) onError(data?.message || 'Google authentication failed.');
       }
     } catch (err) {
       console.error('[GoogleAuthButton] Error during authentication:', err);
-      if (onError) onError(err.message || 'Failed to authenticate with Google.');
+      if (err.data && err.data.requiresRoleSelection) {
+        if (onError) onError(err.data.message, err.data);
+      } else {
+        if (onError) onError(err.message || 'Failed to authenticate with Google.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     let checkInterval = null;

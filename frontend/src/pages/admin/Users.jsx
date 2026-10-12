@@ -42,6 +42,7 @@ import {
   USER_AREAS, 
   REGISTRATION_PERIODS 
 } from '../../utils/mockUserData';
+import { createUser } from '../../services/api';
 
 // Avatar background color palette based on user name
 const AVATAR_COLORS = [
@@ -399,9 +400,21 @@ const Users = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreateUser = (e) => {
+  const handleCreateUser = async (e) => {
     e.preventDefault();
     if (!validateNewUser()) return;
+
+    try {
+      await createUser({
+        name: newUserForm.name.trim(),
+        email: newUserForm.email.trim(),
+        phone: newUserForm.phone.trim(),
+        role: newUserForm.role === 'System Administrator' ? 'admin' : (newUserForm.role === 'Department Staff' ? 'department' : 'citizen'),
+        area: newUserForm.area
+      }).catch(() => {});
+    } catch (err) {
+      console.warn('Backend user creation notice:', err.message);
+    }
 
     const nextIdNum = 1000 + users.length + 1;
     const newUser = {

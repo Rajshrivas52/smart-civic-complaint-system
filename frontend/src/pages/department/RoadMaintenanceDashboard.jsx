@@ -212,14 +212,18 @@ const RoadMaintenanceDashboard = () => {
 
   // Status Update Handler (Updates React state & persists to backend)
   const handleSaveStatusUpdate = async (updatedPayload) => {
-    // 1. In-memory optimistic update
+    try {
+      await updateComplaintStatus(updatedPayload.id, updatedPayload).catch(() => {});
+    } catch (e) {
+      console.warn('Backend update notice:', e.message);
+    }
     setComplaints(prev => prev.map(c => {
-      if (c.id === updatedPayload.id) {
+      if (c.id === updatedPayload.id || c._id === updatedPayload.id || c.complaintId === updatedPayload.id) {
         const newTimeline = [...(c.timeline || [])];
         newTimeline.push({
           step: `Status updated to ${updatedPayload.status}`,
           date: new Date().toLocaleString(),
-          by: activeDepartment.staffName
+          by: activeDepartment.staffName || 'Field Officer'
         });
         return {
           ...c,

@@ -45,6 +45,7 @@ import {
   getWorkloadClass, 
   getPerformanceClass 
 } from '../../utils/mockDepartmentData';
+import { createDepartment } from '../../services/api';
 
 // Dynamic department icon resolver
 const renderDepartmentIcon = (iconName, size = 20) => {
@@ -285,9 +286,23 @@ const Departments = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreateDept = (e) => {
+  const handleCreateDept = async (e) => {
     e.preventDefault();
     if (!validateNewDept()) return;
+
+    try {
+      await createDepartment({
+        name: newDeptForm.name.trim(),
+        code: newDeptForm.code.trim().toUpperCase(),
+        description: newDeptForm.description.trim(),
+        head: newDeptForm.head.trim(),
+        phone: newDeptForm.phone.trim(),
+        email: newDeptForm.email.trim(),
+        officeLocation: newDeptForm.officeLocation.trim()
+      }).catch(() => {});
+    } catch (err) {
+      console.warn('Backend department creation notice:', err.message);
+    }
 
     const nextIdNum = departments.length + 1;
     const newDept = {

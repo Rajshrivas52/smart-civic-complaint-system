@@ -2,13 +2,13 @@ import express from 'express';
 import {
   createComplaint,
   getComplaints,
-  getMyComplaints,
   searchComplaints,
-  getComplaintStats,
   getComplaintById,
   updateComplaintStatus,
   assignComplaint,
-  submitFeedback
+  submitFeedback,
+  getMyComplaints,
+  getComplaintStats
 } from '../controllers/complaintController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { authorize } from '../middlewares/roleMiddleware.js';
@@ -37,7 +37,7 @@ router.get('/my', protect, getMyComplaints);
 // POST /api/complaints - Submit new civic issue (with optional photo upload)
 router.route('/')
   .get(protect, getComplaints)
-  .post(protect, handleImageUpload('image'), createComplaint);
+  .post(protect, authorize('citizen', 'admin'), handleImageUpload('image'), createComplaint);
 
 // ---------------------------------------------------------------------------
 // Individual Complaint Actions
@@ -46,28 +46,16 @@ router.route('/')
 // GET /api/complaints/:id - View complaint details by complaintId or ObjectId
 router.get('/:id', protect, getComplaintById);
 
-// PUT /api/complaints/:id/status - Update status & add progress notes/photos (Dept/Admin)
-router.put(
-  '/:id/status',
-  protect,
-  authorize('admin', 'department'),
-  handleImageUpload('resolutionImage'),
-  updateComplaintStatus
-);
+// PUT /api/complaints/:id/status - Update status, remarks, or timeline (Department, Admin)
+router.put('/:id/status', protect, authorize('department', 'admin'), updateComplaintStatus);
 
-// PUT /api/complaints/:id/assign - Reassign complaint to another department (Admin only)
-router.put(
-  '/:id/assign',
-  protect,
-  authorize('admin'),
-  assignComplaint
-);
+// PUT /api/complaints/:id/assign - Reassign to another department (Admin only)
+router.put('/:id/assign', protect, authorize('admin'), assignComplaint);
 
-// POST /api/complaints/:id/feedback - Citizen ratings & reviews for resolved issue
-router.post(
-  '/:id/feedback',
-  protect,
-  submitFeedback
-);
+// POST /api/complaints/:id/feedback - Submit citizen rating & feedback (Citizen only)
+router.post('/:id/feedback', protect, authorize('citizen'), submitFeedback);
+
+// PUT /api/complaints/:id - General update
+router.put('/:id', protect, authorize('department', 'admin'), updateComplaintStatus);
 
 export default router;

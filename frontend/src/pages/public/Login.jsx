@@ -10,7 +10,10 @@ import { useAuth } from '../../context/AuthContext';
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { loginUser } = useAuth();
+  const { loginUser, loginWithGoogle } = useAuth();
+
+  const searchParams = new URLSearchParams(location.search);
+  const queryRole = searchParams.get('role') || location.state?.role || null;
 
   const redirectMessage = location.state?.message;
   const redirectFrom = location.state?.from;
@@ -21,6 +24,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Mandatory Role Selection Modal state for new Google OAuth users
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [pendingCredential, setPendingCredential] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('citizen');
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -35,7 +43,6 @@ const Login = () => {
       setTimeout(() => {
         const role = (data.user.role || '').toLowerCase();
         
-        // If there was a target route they were trying to visit and they have valid permissions, go there
         if (redirectFrom) {
           if (redirectFrom.startsWith('/admin') && role !== 'admin') {
             navigate('/citizen/dashboard');
@@ -64,6 +71,30 @@ const Login = () => {
     }
   };
 
+  const handleRoleSelectionSubmit = async (e) => {
+    e.preventDefault();
+    if (!pendingCredential) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = await loginWithGoogle(pendingCredential, selectedRole);
+      setShowRoleModal(false);
+      if (data && data.user) {
+        setSuccess(`Account registered as ${selectedRole.toUpperCase()}! Redirecting...`);
+        setTimeout(() => {
+          if (selectedRole === 'admin') navigate('/admin/dashboard');
+          else if (selectedRole === 'department') navigate('/department/dashboard');
+          else navigate('/citizen/dashboard');
+        }, 600);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to complete Google registration.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fillDemoAccount = (demoEmail, demoPassword) => {
     setEmail(demoEmail);
     setPassword(demoPassword);
@@ -75,7 +106,9 @@ const Login = () => {
       <Card style={{ width: '100%', maxWidth: '450px', padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '1.75rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Welcome Back</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Login with your registered civic account</p>
+          <p style={{ color: 'var(--text-muted)' }}>
+            {queryRole ? `Sign in as ${queryRole.toUpperCase()}` : 'Login with your registered civic account'}
+          </p>
         </div>
 
         {/* Redirect / Auth Guard Message */}
@@ -204,6 +237,7 @@ const Login = () => {
         {/* Official Google Identity Services Authentication */}
         <GoogleAuthButton 
           text="continue_with"
+          role={queryRole}
           onSuccess={(userData) => {
             const role = (userData.role || 'citizen').toLowerCase();
             setSuccess(`Welcome, ${userData.name}! Redirecting...`);
@@ -230,10 +264,92 @@ const Login = () => {
               }
             }, 600);
           }}
-          onError={(errMsg) => {
-            setError(errMsg);
+          onError={(err, meta) => {
+            if (meta?.requiresRoleSelection) {
+              setPendingCredential(meta.credential);
+              setShowRoleModal(true);
+            } else {
+              setError(typeof err === 'string' ? err : (err?.message || 'Google Authentication failed.'));
+            }
           }}
         />
+
+        {/* Mandatory Role Selection Modal for Google users without pre-defined role */}
+        {showRoleModal && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}>
+            <div style={{
+              backgroundColor: 'var(--surface, #ffffff)',
+              borderRadius: '12px',
+              padding: '2rem',
+              maxWidth: '420px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0,0,0,0.3)'
+            }}>
+              <h3 style={{ fontSize: '1.3rem', marginBottom: '0.5rem', color: 'var(--primary)' }}>Select Account Role</h3>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
+                First-time Google Sign-Up requires assigning a role before creating your account.
+              </p>
+              <form onSubmit={handleRoleSelectionSubmit}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="citizen" 
+                      checked={selectedRole === 'citizen'} 
+                      onChange={() => setSelectedRole('citizen')} 
+                    />
+                    <div>
+                      <strong style={{ display: 'block' }}>Citizen Account</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Report public issues, track complaints</span>
+                    </div>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="department" 
+                      checked={selectedRole === 'department'} 
+                      onChange={() => setSelectedRole('department')} 
+                    />
+                    <div>
+                      <strong style={{ display: 'block' }}>Department Officer</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Manage work orders & resolve assigned issues</span>
+                    </div>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="admin" 
+                      checked={selectedRole === 'admin'} 
+                      onChange={() => setSelectedRole('admin')} 
+                    />
+                    <div>
+                      <strong style={{ display: 'block' }}>Municipal Admin</strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>System configuration & full oversight</span>
+                    </div>
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn btn-outline" onClick={() => setShowRoleModal(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Completing...' : 'Complete Onboarding'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Demo Quick-Fill Shortcuts */}
         <div style={{ marginTop: '1.5rem', padding: '0.85rem', backgroundColor: 'var(--background)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
@@ -275,5 +391,6 @@ const Login = () => {
     </div>
   );
 };
+
 
 export default Login;

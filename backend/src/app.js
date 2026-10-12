@@ -7,9 +7,8 @@ import { notFoundHandler, errorHandler } from './middlewares/errorMiddleware.js'
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
-import notificationRoutes from './routes/notificationRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
-
+import notificationRoutes from './routes/notificationRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,9 +61,8 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/complaints', complaintRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/departments', departmentRoutes);
-
+app.use('/api/notifications', notificationRoutes);
 
 // 6. Error Handlers
 app.use(notFoundHandler);

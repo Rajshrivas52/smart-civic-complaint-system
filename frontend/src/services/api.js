@@ -158,11 +158,6 @@ export const logout = () => {
 // Complaint Services
 // --------------------------------------------------------------------------
 
-/**
- * Search complaints with query string & optional AbortSignal
- * @param {string} query
- * @param {AbortSignal} [signal]
- */
 export const searchComplaints = async (query, signal) => {
   if (!query || !query.trim()) {
     return { success: true, count: 0, data: [] };
@@ -173,10 +168,6 @@ export const searchComplaints = async (query, signal) => {
   });
 };
 
-/**
- * Get complaint details by complaintId or mongo ObjectId
- * @param {string} id
- */
 export const getComplaintById = async (id) => {
   if (!id) {
     throw new Error('Complaint ID is required');
@@ -186,10 +177,6 @@ export const getComplaintById = async (id) => {
   });
 };
 
-/**
- * Submit a new complaint (supports JSON or FormData with file attachment)
- * @param {Object|FormData} complaintData
- */
 export const createComplaint = async (complaintData) => {
   const isFormData = typeof FormData !== 'undefined' && complaintData instanceof FormData;
   return apiRequest('/complaints', {
@@ -198,10 +185,6 @@ export const createComplaint = async (complaintData) => {
   });
 };
 
-/**
- * List complaints with query filters and pagination
- * @param {Object} params
- */
 export const getComplaints = async (params = {}) => {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, val]) => {
@@ -213,25 +196,20 @@ export const getComplaints = async (params = {}) => {
   return apiRequest(`/complaints${queryString ? `?${queryString}` : ''}`);
 };
 
-/**
- * Get citizen's own complaints with status summary
- */
+export const getAllComplaints = async () => {
+  return apiRequest('/complaints', {
+    method: 'GET'
+  });
+};
+
 export const getMyComplaints = async () => {
   return apiRequest('/complaints/my');
 };
 
-/**
- * Get aggregated counts for dashboard counters
- */
 export const getComplaintStats = async () => {
   return apiRequest('/complaints/stats');
 };
 
-/**
- * Update complaint status (Department/Admin)
- * @param {string} id
- * @param {Object|FormData} statusData
- */
 export const updateComplaintStatus = async (id, statusData) => {
   const isFormData = typeof FormData !== 'undefined' && statusData instanceof FormData;
   return apiRequest(`/complaints/${encodeURIComponent(id)}/status`, {
@@ -240,11 +218,6 @@ export const updateComplaintStatus = async (id, statusData) => {
   });
 };
 
-/**
- * Reassign complaint to another department (Admin only)
- * @param {string} id
- * @param {Object} assignData
- */
 export const assignComplaint = async (id, assignData) => {
   return apiRequest(`/complaints/${encodeURIComponent(id)}/assign`, {
     method: 'PUT',
@@ -252,11 +225,6 @@ export const assignComplaint = async (id, assignData) => {
   });
 };
 
-/**
- * Submit citizen rating & feedback for resolved complaint
- * @param {string} id
- * @param {Object} feedbackData
- */
 export const submitComplaintFeedback = async (id, feedbackData) => {
   return apiRequest(`/complaints/${encodeURIComponent(id)}/feedback`, {
     method: 'POST',
@@ -286,11 +254,27 @@ export const markAllNotificationsRead = async () => {
 };
 
 // --------------------------------------------------------------------------
-// Department Services
+// Department & User Services
 // --------------------------------------------------------------------------
 
 export const getDepartments = async () => {
-  return apiRequest('/departments');
+  return apiRequest('/departments', { method: 'GET' });
 };
 
+export const createDepartment = async (deptData) => {
+  return apiRequest('/departments', {
+    method: 'POST',
+    body: JSON.stringify(deptData)
+  });
+};
 
+export const getUsers = async () => {
+  return apiRequest('/users', { method: 'GET' });
+};
+
+export const createUser = async (userData) => {
+  return apiRequest('/users', {
+    method: 'POST',
+    body: JSON.stringify(userData)
+  });
+};

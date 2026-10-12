@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Upload, AlertCircle, X, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { MapPin, Upload, AlertCircle, X, CheckCircle } from 'lucide-react';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Select from '../../components/Select';
@@ -15,7 +15,7 @@ const ReportComplaint = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    category: '',
+    category: 'Road Maintenance & Potholes',
     severity: 'Medium',
     address: '',
     area: 'City Center'
@@ -75,19 +75,29 @@ const ReportComplaint = () => {
     setLoading(true);
 
     try {
-      // Use FormData to send text fields and image file
-      const payload = new FormData();
-      payload.append('title', formData.title.trim());
-      payload.append('description', formData.description.trim());
-      if (formData.category) payload.append('category', formData.category);
-      payload.append('severity', formData.severity);
-      payload.append('address', formData.address.trim());
-      payload.append('area', formData.area);
-      payload.append('latitude', '26.2183');
-      payload.append('longitude', '78.1828');
-
+      let payload;
       if (imageFile) {
+        payload = new FormData();
+        payload.append('title', formData.title.trim());
+        payload.append('description', formData.description.trim());
+        if (formData.category) payload.append('category', formData.category);
+        payload.append('severity', formData.severity);
+        payload.append('address', formData.address.trim());
+        payload.append('area', formData.area);
+        payload.append('latitude', '26.2183');
+        payload.append('longitude', '78.1828');
         payload.append('image', imageFile);
+      } else {
+        payload = {
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          category: formData.category,
+          severity: formData.severity,
+          address: formData.address.trim(),
+          area: formData.area,
+          latitude: 26.2183,
+          longitude: 78.1828
+        };
       }
 
       const response = await createComplaint(payload);
@@ -114,7 +124,7 @@ const ReportComplaint = () => {
       <div className="page-header" style={{ marginBottom: '1.5rem' }}>
         <div>
           <h1 className="page-title">Report an Issue</h1>
-          <p className="page-subtitle">Help improve Gwalior by reporting civic problems directly to municipal authorities.</p>
+          <p className="page-subtitle">Help improve the city by reporting civic problems directly to municipal authorities.</p>
         </div>
       </div>
 
@@ -187,7 +197,7 @@ const ReportComplaint = () => {
             <Select 
               label="Category (AI can also auto-classify)" 
               id="category"
-              options={['', ...mockCategories]}
+              options={mockCategories}
               value={formData.category}
               onChange={(e) => handleInputChange('category', e.target.value)}
             />
@@ -215,7 +225,7 @@ const ReportComplaint = () => {
               border: '2px dashed var(--border)'
             }}>
               <MapPin size={28} style={{ marginBottom: '0.35rem', color: 'var(--primary)' }} />
-              <p style={{ fontWeight: '500', fontSize: '0.9rem', color: 'var(--text-main)' }}>Central Gwalior Geo-Location Enabled</p>
+              <p style={{ fontWeight: '500', fontSize: '0.9rem', color: 'var(--text-main)' }}>Central Zone Geo-Location Enabled</p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Lat: 26.2183 | Lng: 78.1828 (Auto-detected)</p>
             </div>
             <Input 
