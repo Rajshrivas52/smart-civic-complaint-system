@@ -98,10 +98,10 @@ export const login = async ({ email, password }) => {
   return data;
 };
 
-export const googleAuth = async (credential, role) => {
+export const googleAuth = async (credential, role, extraData = {}) => {
   const data = await apiRequest('/auth/google', {
     method: 'POST',
-    body: JSON.stringify({ credential, role })
+    body: JSON.stringify({ credential, role, ...extraData })
   });
 
   if (data.token && data.user) {

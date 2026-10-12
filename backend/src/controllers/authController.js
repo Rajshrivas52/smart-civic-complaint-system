@@ -261,7 +261,7 @@ export const login = async (req, res, next) => {
  */
 export const googleAuth = async (req, res, next) => {
   try {
-    const { credential, role } = req.body;
+    const { credential, role, departmentName } = req.body;
 
     if (!credential) {
       return res.status(400).json({
@@ -380,7 +380,21 @@ export const googleAuth = async (req, res, next) => {
     }
 
     // 4. Handle new Google registration according to selected role
-    const requestedRole = (role || 'citizen').toLowerCase();
+    // If no role is passed for a new account, return needsRoleSelection so the UI can display the onboarding modal
+    if (!role) {
+      return res.status(200).json({
+        success: true,
+        needsRoleSelection: true,
+        message: 'Please choose an account role to complete registration.',
+        googleProfile: {
+          name: googleName,
+          email: googleEmail,
+          picture: googlePicture
+        }
+      });
+    }
+
+    const requestedRole = role.toLowerCase();
     let newAccount = null;
 
     if (requestedRole === 'citizen') {
@@ -430,33 +444,41 @@ export const googleAuth = async (req, res, next) => {
     } else if (requestedRole === 'department') {
       const deptId = `DEPT-${Date.now().toString().slice(-6)}`;
       const baseName = googleName && googleName !== 'User' ? googleName : googleEmail.split('@')[0];
-      const deptName = `${baseName} Department`;
-      const deptCode = (baseName.substring(0, 4) || 'DEPT').toUpperCase();
+      const targetDeptName = (departmentName && departmentName.trim()) 
+        ? departmentName.trim() 
+        : `${baseName} Department`;
 
-      let finalDeptName = deptName;
-      let finalDeptCode = deptCode;
-
-      const existingName = await Department.findOne({ name: finalDeptName });
-      if (existingName) {
-        finalDeptName = `${deptName} ${Date.now().toString().slice(-4)}`;
-      }
-      const existingCode = await Department.findOne({ code: finalDeptCode });
-      if (existingCode) {
-        finalDeptCode = `${deptCode}${Date.now().toString().slice(-2)}`;
-      }
-
-      newAccount = await Department.create({
-        departmentId: deptId,
-        name: finalDeptName,
-        code: finalDeptCode,
-        email: googleEmail,
-        googleId: googleSub,
-        authProvider: 'google',
-        role: 'department',
-        head: googleName,
-        phone: '',
-        status: 'Active'
+      // Check if department exists by name or email
+      const escapedDeptName = targetDeptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let existingDept = await Department.findOne({
+        $or: [
+          { name: new RegExp(`^${escapedDeptName}$`, 'i') },
+          { email: googleEmail }
+        ]
       });
+
+      if (existingDept) {
+        existingDept.googleId = googleSub;
+        existingDept.authProvider = 'google';
+        if (googlePicture && !existingDept.avatar) existingDept.avatar = googlePicture;
+        existingDept.lastActive = new Date();
+        await existingDept.save({ validateBeforeSave: false });
+        newAccount = existingDept;
+      } else {
+        const deptCode = (targetDeptName.substring(0, 4) || 'DEPT').toUpperCase();
+        newAccount = await Department.create({
+          departmentId: deptId,
+          name: targetDeptName,
+          code: deptCode,
+          email: googleEmail,
+          googleId: googleSub,
+          authProvider: 'google',
+          role: 'department',
+          head: googleName,
+          phone: '',
+          status: 'Active'
+        });
+      }
     } else {
       return res.status(400).json({
         success: false,
