@@ -96,6 +96,14 @@ const citizenSchema = new mongoose.Schema({
   lastActive: {
     type: Date,
     default: Date.now
+  },
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
   }
 }, {
   timestamps: true,

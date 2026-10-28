@@ -233,6 +233,28 @@ export const createComplaint = async (req, res, next) => {
       }
     });
 
+    // 6b. Attempt AI-powered classification (non-blocking)
+    try {
+      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      const aiResponse = await fetch(`${aiServiceUrl}/classify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `${title} ${description}`, complaint_id: complaint.complaintId })
+      });
+      if (aiResponse.ok) {
+        const aiData = await aiResponse.json();
+        complaint.aiAnalysis = {
+          detectedCategory: aiData.category || canonicalCategory,
+          detectedPriority: aiData.priority || normalizedPriority,
+          confidence: aiData.confidence || 0.0,
+          processed: true
+        };
+        await complaint.save();
+      }
+    } catch (aiErr) {
+      console.warn('[AI Service] Not available, using rule-based classification:', aiErr.message);
+    }
+
     // 7. Update citizen's complaint counter & activity
     try {
       await Citizen.findByIdAndUpdate(user._id, {

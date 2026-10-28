@@ -13,17 +13,17 @@ import {
 } from 'lucide-react';
 import './StatusUpdateModal.css';
 
-const StatusUpdateModal = ({ complaint, officers, onClose, onSaveUpdate }) => {
-  if (!complaint) return null;
-
-  const [newStatus, setNewStatus] = useState(complaint.status);
-  const [assignedStaff, setAssignedStaff] = useState(complaint.assignedStaff || officers[1]);
-  const [workRemarks, setWorkRemarks] = useState(complaint.workRemarks || '');
-  const [resolutionRemarks, setResolutionRemarks] = useState(complaint.resolutionRemarks || '');
+const StatusUpdateModal = ({ complaint, officers = [], onClose, onSaveUpdate }) => {
+  const [newStatus, setNewStatus] = useState(complaint?.status || '');
+  const [assignedStaff, setAssignedStaff] = useState(complaint?.assignedStaff || officers?.[1] || '');
+  const [workRemarks, setWorkRemarks] = useState(complaint?.workRemarks || '');
+  const [resolutionRemarks, setResolutionRemarks] = useState(complaint?.resolutionRemarks || '');
   const [resolutionDate, setResolutionDate] = useState(
-    complaint.resolutionDate || new Date().toISOString().split('T')[0]
+    complaint?.resolutionDate || new Date().toISOString().split('T')[0]
   );
   const [uploadProof, setUploadProof] = useState(false);
+
+  if (!complaint) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
