@@ -14,13 +14,10 @@ import userRoutes from './routes/userRoutes.js';
 import complaintRoutes from './routes/complaintRoutes.js';
 import reportIssueRoutes from './routes/reportIssueRoutes.js';
 import departmentRoutes from './routes/departmentRoutes.js';
-<<<<<<< HEAD
 import notificationRoutes from './routes/notificationRoutes.js';
-=======
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import supportTicketRoutes from './routes/supportTicketRoutes.js';
->>>>>>> 5e9c89de50790967ed2326f90e3af6db52321f4d
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -111,17 +108,12 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/report-issues', reportIssueRoutes);
 app.use('/api/reports', reportIssueRoutes);
 app.use('/api/departments', departmentRoutes);
-<<<<<<< HEAD
 app.use('/api/notifications', notificationRoutes);
-
-// 6. Error Handlers
-=======
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/support-tickets', supportTicketRoutes);
 
-// 9. Error Handlers
->>>>>>> 5e9c89de50790967ed2326f90e3af6db52321f4d
+// Error Handlers
 app.use(notFoundHandler);
 app.use(errorHandler);
 

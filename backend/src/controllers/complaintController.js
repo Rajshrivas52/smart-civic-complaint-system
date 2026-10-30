@@ -261,7 +261,6 @@ export const createComplaint = async (req, res, next) => {
       }
     });
 
-<<<<<<< HEAD
     // 6b. Store in dedicated 'reportissues' collection in MongoDB (Separate page in database)
     try {
       await ReportIssue.create({
@@ -294,7 +293,6 @@ export const createComplaint = async (req, res, next) => {
       });
     } catch (reportIssueErr) {
       console.warn('[Database] ReportIssue collection insert warning:', reportIssueErr.message);
-=======
     // 6b. Attempt AI-powered classification (non-blocking)
     try {
       const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
@@ -315,7 +313,6 @@ export const createComplaint = async (req, res, next) => {
       }
     } catch (aiErr) {
       console.warn('[AI Service] Not available, using rule-based classification:', aiErr.message);
->>>>>>> 5e9c89de50790967ed2326f90e3af6db52321f4d
     }
 
     // 7. Update citizen's complaint counter & activity

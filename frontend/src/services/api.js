@@ -289,14 +289,12 @@ export const getDepartments = async () => {
   return apiRequest('/departments', { method: 'GET' });
 };
 
-<<<<<<< HEAD
 export const createDepartment = async (deptData) => {
   return apiRequest('/departments', {
     method: 'POST',
     body: JSON.stringify(deptData)
   });
 };
-=======
 // --------------------------------------------------------------------------
 // Analytics Services
 // --------------------------------------------------------------------------
@@ -351,7 +349,6 @@ export const resetPassword = async (token, password) => {
   return apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) });
 };
 
->>>>>>> 5e9c89de50790967ed2326f90e3af6db52321f4d
 
 export const getUsers = async () => {
   return apiRequest('/users', { method: 'GET' });
