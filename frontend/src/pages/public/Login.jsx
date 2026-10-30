@@ -211,9 +211,9 @@ const Login = () => {
               <input type="checkbox" defaultChecked />
               <span>Remember me</span>
             </label>
-            <a href="#" onClick={(e) => { e.preventDefault(); alert("Please contact administrator to reset password."); }} style={{ color: 'var(--primary)', textDecoration: 'none' }}>
+            <Link to="/forgot-password" style={{ color: 'var(--primary)', textDecoration: 'none' }}>
               Forgot password?
-            </a>
+            </Link>
           </div>
 
           <Button type="submit" fullWidth disabled={loading}>

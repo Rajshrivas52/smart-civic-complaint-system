@@ -289,12 +289,69 @@ export const getDepartments = async () => {
   return apiRequest('/departments', { method: 'GET' });
 };
 
+<<<<<<< HEAD
 export const createDepartment = async (deptData) => {
   return apiRequest('/departments', {
     method: 'POST',
     body: JSON.stringify(deptData)
   });
 };
+=======
+// --------------------------------------------------------------------------
+// Analytics Services
+// --------------------------------------------------------------------------
+
+export const getAnalytics = async (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') query.append(key, val);
+  });
+  const queryString = query.toString();
+  return apiRequest(`/analytics${queryString ? `?${queryString}` : ''}`);
+};
+
+// --------------------------------------------------------------------------
+// Support Tickets Services
+// --------------------------------------------------------------------------
+
+export const createSupportTicket = async (ticketData) => {
+  return apiRequest('/support-tickets', { method: 'POST', body: JSON.stringify(ticketData) });
+};
+
+export const getSupportTickets = async (params = {}) => {
+  const query = new URLSearchParams(params).toString();
+  return apiRequest(`/support-tickets${query ? `?${query}` : ''}`);
+};
+
+export const updateSupportTicket = async (id, data) => {
+  return apiRequest(`/support-tickets/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+};
+
+// --------------------------------------------------------------------------
+// Settings Services
+// --------------------------------------------------------------------------
+
+export const getSettings = async () => {
+  return apiRequest('/settings');
+};
+
+export const updateSetting = async (key, value) => {
+  return apiRequest(`/settings/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify({ value }) });
+};
+
+// --------------------------------------------------------------------------
+// Password Reset Services
+// --------------------------------------------------------------------------
+
+export const forgotPassword = async (email) => {
+  return apiRequest('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
+};
+
+export const resetPassword = async (token, password) => {
+  return apiRequest('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) });
+};
+
+>>>>>>> 5e9c89de50790967ed2326f90e3af6db52321f4d
 
 export const getUsers = async () => {
   return apiRequest('/users', { method: 'GET' });

@@ -1,8 +1,10 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import Citizen from '../models/Citizen.js';
 import Admin from '../models/Admin.js';
 import Department from '../models/Department.js';
+import User from '../models/User.js';
 import { USER_ROLES } from '../constants/civicConstants.js';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -625,3 +627,123 @@ export const updatePassword = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Request password reset token
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide an email address.'
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check across user collections
+    let account = await Citizen.findOne({ email: normalizedEmail });
+    if (!account) account = await Admin.findOne({ email: normalizedEmail });
+    if (!account) account = await Department.findOne({ email: normalizedEmail });
+    if (!account) account = await User.findOne({ email: normalizedEmail });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: 'No user account found with that email address.'
+      });
+    }
+
+    // Generate random crypto reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    // Hash token and save to account doc
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    account.resetPasswordToken = hashedToken;
+    account.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000); // Valid for 30 minutes
+
+    await account.save({ validateBeforeSave: false });
+
+    // In a production environment, this would be emailed to the user
+    res.status(200).json({
+      success: true,
+      message: 'Password reset token generated successfully. Valid for 30 minutes.',
+      resetToken
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Reset password using reset token
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+export const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword, password } = req.body;
+    const providedPassword = newPassword || password;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset token is required.'
+      });
+    }
+
+    if (!providedPassword || providedPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long.'
+      });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(String(token).trim()).digest('hex');
+
+    const searchCriteria = {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    };
+
+    let account = await Citizen.findOne(searchCriteria).select('+password +resetPasswordToken +resetPasswordExpires');
+    if (!account) account = await Admin.findOne(searchCriteria).select('+password +resetPasswordToken +resetPasswordExpires');
+    if (!account) account = await Department.findOne(searchCriteria).select('+password +resetPasswordToken +resetPasswordExpires');
+    if (!account) account = await User.findOne(searchCriteria).select('+password +resetPasswordToken +resetPasswordExpires');
+
+    if (!account) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired password reset token.'
+      });
+    }
+
+    // Update password
+    account.password = providedPassword;
+    account.resetPasswordToken = undefined;
+    account.resetPasswordExpires = undefined;
+
+    if (account.activity) {
+      account.activity.unshift({
+        desc: 'Reset account password via token',
+        time: 'Just now',
+        timestamp: new Date()
+      });
+    }
+
+    await account.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password has been reset successfully. You can now log in with your new password.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

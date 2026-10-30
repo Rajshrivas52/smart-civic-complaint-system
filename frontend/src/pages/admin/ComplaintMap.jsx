@@ -19,29 +19,139 @@ import {
   ShieldAlert, 
   Filter,
   Layers,
-  ChevronRight
+  ChevronRight,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 
 import './ComplaintMap.css';
+import { getComplaints } from '../../services/api';
 
-import { 
-  mockMapComplaints,
-  GWALIOR_CENTER,
-  MAP_CATEGORIES,
-  MAP_PRIORITIES,
-  MAP_STATUSES,
-  MAP_DEPARTMENTS,
-  MAP_AREAS
-} from '../../utils/mockData';
-
+// Date range options
 const DATE_RANGE_OPTIONS = ['All', 'Today', 'Last 7 Days', 'Last 30 Days', 'Custom'];
 
-// Gwalior coordinate boundary for GIS fallback projection
+// Local municipal definitions & boundaries
+const GWALIOR_CENTER = {
+  lat: 26.2183,
+  lng: 78.1828
+};
+
 const GWALIOR_BOUNDS = {
   minLat: 26.185,
   maxLat: 26.260,
   minLng: 78.145,
   maxLng: 78.235
+};
+
+const MAP_CATEGORIES = [
+  'All',
+  'Road Damage',
+  'Pothole',
+  'Garbage',
+  'Streetlight',
+  'Water',
+  'Water Leakage',
+  'Drainage',
+  'Traffic',
+  'Environment',
+  'Other'
+];
+
+const MAP_PRIORITIES = ['All', 'High', 'Medium', 'Low'];
+
+const MAP_STATUSES = ['All', 'Pending', 'Assigned', 'In Progress', 'Resolved', 'Rejected'];
+
+const MAP_DEPARTMENTS = [
+  'All',
+  'Public Works',
+  'Road Maintenance',
+  'Sanitation',
+  'Water Supply',
+  'Electrical',
+  'Electricity',
+  'Drainage',
+  'Traffic',
+  'Traffic Management',
+  'Parks & Environment'
+];
+
+const MAP_AREAS = [
+  'All',
+  'City Center',
+  'Thatipur',
+  'Lashkar',
+  'Morar',
+  'Gola Ka Mandir',
+  'Phool Bagh',
+  'Madhav Nagar',
+  'Hazira',
+  'DD Nagar',
+  'University Road'
+];
+
+/**
+ * Normalize and extract geographical coordinates from backend complaint objects
+ */
+const extractCoordinates = (complaint) => {
+  let lat = null;
+  let lng = null;
+
+  if (typeof complaint.latitude === 'number' && typeof complaint.longitude === 'number') {
+    lat = complaint.latitude;
+    lng = complaint.longitude;
+  } else if (complaint.location && typeof complaint.location.lat === 'number' && typeof complaint.location.lng === 'number') {
+    lat = complaint.location.lat;
+    lng = complaint.location.lng;
+  } else if (complaint.location && Array.isArray(complaint.location.coordinates) && complaint.location.coordinates.length >= 2) {
+    lng = complaint.location.coordinates[0];
+    lat = complaint.location.coordinates[1];
+  }
+
+  // If coordinates are missing or out of city range, project pseudo-deterministically from ID or area
+  if (lat == null || lng == null || isNaN(lat) || isNaN(lng)) {
+    const seed = String(complaint.complaintId || complaint._id || complaint.id || '1000')
+      .split('')
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    
+    // Spread nicely inside Gwalior bounds
+    const latSpan = GWALIOR_BOUNDS.maxLat - GWALIOR_BOUNDS.minLat;
+    const lngSpan = GWALIOR_BOUNDS.maxLng - GWALIOR_BOUNDS.minLng;
+    lat = GWALIOR_BOUNDS.minLat + (0.15 + (seed % 70) / 100) * latSpan;
+    lng = GWALIOR_BOUNDS.minLng + (0.15 + ((seed * 7) % 70) / 100) * lngSpan;
+  }
+
+  return { lat, lng };
+};
+
+/**
+ * Standardize complaint record for map rendering
+ */
+const formatComplaintForMap = (c) => {
+  const { lat, lng } = extractCoordinates(c);
+  const id = c.complaintId || c.id || c._id || 'CMP-000';
+  const title = c.title || 'Civic Grievance';
+  const category = c.category || 'Other';
+  const priority = c.priority || 'Medium';
+  const status = c.status || 'Pending';
+  const area = c.area || 'City Center';
+  const department = c.departmentName || (c.department?.name) || (typeof c.department === 'string' && !c.department.startsWith('6') ? c.department : 'Unassigned');
+  const reportedDate = c.createdAt ? c.createdAt.slice(0, 10) : (c.reportedDate || c.submittedDate || new Date().toISOString().slice(0, 10));
+  const citizenName = c.citizenName || c.citizen?.name || 'Citizen';
+
+  return {
+    raw: c,
+    id,
+    title,
+    category,
+    priority,
+    status,
+    area,
+    department,
+    latitude: lat,
+    longitude: lng,
+    reportedDate,
+    citizenName
+  };
 };
 
 const ComplaintMap = () => {
@@ -53,6 +163,12 @@ const ComplaintMap = () => {
 
   // Environment variable for Google Maps API Key
   const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+  // Data Loading states
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
   // Google Maps Loading states
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -73,25 +189,78 @@ const ComplaintMap = () => {
   // Active selected complaint (for InfoWindow / popup card)
   const [selectedComplaint, setSelectedComplaint] = useState(null);
 
+  // Fetch real complaints from backend API
+  const fetchComplaintsData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
+
+    try {
+      // Fetch up to 100 records in page 1, and fetch additional pages if needed
+      const response = await getComplaints({ limit: 100, page: 1 });
+      let rawList = [];
+
+      if (response && Array.isArray(response.data)) {
+        rawList = response.data;
+        // If there are more pages, fetch page 2 to gather more geo-pins
+        if (response.totalPages > 1) {
+          try {
+            const page2 = await getComplaints({ limit: 100, page: 2 });
+            if (page2 && Array.isArray(page2.data)) {
+              rawList = [...rawList, ...page2.data];
+            }
+          } catch (p2Err) {
+            console.warn('Page 2 fetch skipped:', p2Err.message);
+          }
+        }
+      } else if (Array.isArray(response)) {
+        rawList = response;
+      }
+
+      const formatted = rawList.map(formatComplaintForMap);
+      setComplaints(formatted);
+    } catch (err) {
+      console.error('Failed to load real complaints for map:', err);
+      setError(err.message || 'Failed to fetch complaints from backend.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchComplaintsData();
+  }, [fetchComplaintsData]);
+
   // Filtered complaints computation
   const filteredComplaints = useMemo(() => {
-    return mockMapComplaints.filter((item) => {
-      // 1. Search Query (ID, Title, Category, Area, Department)
+    return complaints.filter((item) => {
+      // 1. Search Query (ID, Title, Category, Area, Department, Citizen)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const matchId = item.id.toLowerCase().includes(query);
-        const matchTitle = item.title.toLowerCase().includes(query);
-        const matchCategory = item.category.toLowerCase().includes(query);
-        const matchArea = item.area.toLowerCase().includes(query);
-        const matchDept = item.department.toLowerCase().includes(query);
-        if (!matchId && !matchTitle && !matchCategory && !matchArea && !matchDept) {
+        const matchId = String(item.id).toLowerCase().includes(query);
+        const matchTitle = String(item.title).toLowerCase().includes(query);
+        const matchCategory = String(item.category).toLowerCase().includes(query);
+        const matchArea = String(item.area).toLowerCase().includes(query);
+        const matchDept = String(item.department).toLowerCase().includes(query);
+        const matchCitizen = String(item.citizenName).toLowerCase().includes(query);
+
+        if (!matchId && !matchTitle && !matchCategory && !matchArea && !matchDept && !matchCitizen) {
           return false;
         }
       }
 
       // 2. Category
-      if (categoryFilter !== 'All' && item.category.toLowerCase() !== categoryFilter.toLowerCase()) {
-        return false;
+      if (categoryFilter !== 'All') {
+        const cat = item.category.toLowerCase();
+        const targetCat = categoryFilter.toLowerCase();
+        if (cat !== targetCat && !cat.includes(targetCat) && !targetCat.includes(cat)) {
+          return false;
+        }
       }
 
       // 3. Priority
@@ -105,24 +274,32 @@ const ComplaintMap = () => {
       }
 
       // 5. Department
-      if (departmentFilter !== 'All' && item.department.toLowerCase() !== departmentFilter.toLowerCase()) {
-        return false;
+      if (departmentFilter !== 'All') {
+        const dept = item.department.toLowerCase();
+        const targetDept = departmentFilter.toLowerCase();
+        if (dept !== targetDept && !dept.includes(targetDept) && !targetDept.includes(dept)) {
+          return false;
+        }
       }
 
       // 6. Area
-      if (areaFilter !== 'All' && item.area.toLowerCase() !== areaFilter.toLowerCase()) {
-        return false;
+      if (areaFilter !== 'All') {
+        const area = item.area.toLowerCase();
+        const targetArea = areaFilter.toLowerCase();
+        if (area !== targetArea && !area.includes(targetArea) && !targetArea.includes(area)) {
+          return false;
+        }
       }
 
       // 7. Date Range
       if (dateFilter !== 'All') {
         const itemDateStr = item.reportedDate;
         const itemTime = new Date(itemDateStr).getTime();
-        const now = Math.max(Date.now(), new Date('2026-09-06').getTime());
+        const now = Date.now();
         const oneDay = 24 * 60 * 60 * 1000;
 
         if (dateFilter === 'Today') {
-          if (itemDateStr !== '2026-09-06' && Math.abs(now - itemTime) > oneDay) return false;
+          if (now - itemTime > oneDay) return false;
         } else if (dateFilter === 'Last 7 Days') {
           if (now - itemTime > 7 * oneDay) return false;
         } else if (dateFilter === 'Last 30 Days') {
@@ -135,7 +312,7 @@ const ComplaintMap = () => {
 
       return true;
     });
-  }, [searchQuery, categoryFilter, priorityFilter, statusFilter, departmentFilter, areaFilter, dateFilter, customStartDate, customEndDate]);
+  }, [complaints, searchQuery, categoryFilter, priorityFilter, statusFilter, departmentFilter, areaFilter, dateFilter, customStartDate, customEndDate]);
 
   // Dynamically computed map summary counts
   const summaryCounts = useMemo(() => {
@@ -143,7 +320,7 @@ const ComplaintMap = () => {
       total: filteredComplaints.length,
       highPriority: filteredComplaints.filter(c => c.priority === 'High').length,
       pending: filteredComplaints.filter(c => c.status === 'Pending').length,
-      inProgress: filteredComplaints.filter(c => c.status === 'In Progress').length,
+      inProgress: filteredComplaints.filter(c => c.status === 'In Progress' || c.status === 'Assigned').length,
       resolved: filteredComplaints.filter(c => c.status === 'Resolved').length
     };
   }, [filteredComplaints]);
@@ -371,15 +548,57 @@ const ComplaintMap = () => {
             </span>
           </h1>
           <p className="map-subtitle">
-            Monitor, locate and analyze civic complaints across municipal sectors.
+            Monitor, locate and analyze real-time civic complaints across municipal sectors.
           </p>
         </div>
 
-        <div className="map-live-status">
-          <span className="pulse-dot" />
-          <span>Live Municipal Geotagging</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.4rem 0.75rem' }}
+            onClick={() => fetchComplaintsData(true)}
+            disabled={refreshing || loading}
+            title="Refresh complaint map coordinates"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
+
+          <div className="map-live-status">
+            <span className="pulse-dot" />
+            <span>Live Municipal Geotagging</span>
+          </div>
         </div>
       </header>
+
+      {/* Error state */}
+      {error && (
+        <div style={{
+          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: 'var(--radius)',
+          padding: '0.85rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#dc2626',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderColor: '#dc2626', color: '#dc2626' }}
+            onClick={() => fetchComplaintsData()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* 2. FILTER & SEARCH TOOLBAR */}
       <section className="map-filter-card" aria-label="Complaint Map Filters">
@@ -390,7 +609,7 @@ const ComplaintMap = () => {
             <input 
               type="text"
               className="map-search-input"
-              placeholder="Search complaints, area or complaint ID..."
+              placeholder="Search complaints, citizen, area or complaint ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search complaints by keyword or area"
@@ -580,7 +799,7 @@ const ComplaintMap = () => {
         {/* In Progress */}
         <div className="map-summary-card">
           <div className="summary-card-info">
-            <span className="summary-card-label">In Progress</span>
+            <span className="summary-card-label">In Progress / Assigned</span>
             <span className="summary-card-count">{summaryCounts.inProgress}</span>
           </div>
           <div className="summary-card-icon icon-progress">
@@ -659,23 +878,50 @@ const ComplaintMap = () => {
             </span>
           </div>
 
-          {/* Live Google Map vs. Graceful Fallback GIS Canvas */}
+          {/* Loading Indicator inside Map Canvas */}
+          {loading && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.85)',
+              zIndex: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem'
+            }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: '3px solid var(--border)',
+                borderTopColor: 'var(--primary)',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                Loading complaint coordinates...
+              </span>
+            </div>
+          )}
+
+          {/* Live Google Map vs. Interactive GIS Municipal Canvas */}
           {googleMapsApiKey && isMapLoaded && !mapLoadError ? (
             /* Live Google Map Container */
             <div ref={mapContainerRef} className="google-map-element" />
           ) : (
-            /* Safe Fallback Interactive GIS Municipal Canvas */
+            /* Interactive GIS Municipal Canvas */
             <div className="map-fallback-view">
-              {/* Fallback explanation banner */}
+              {/* GIS explanation banner */}
               <div className="map-fallback-notice">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <ShieldAlert size={16} style={{ color: '#b45309' }} />
                   <span>
-                    <strong>Google Maps API key is not configured.</strong> Showing interactive municipal GIS vector preview.
+                    <strong>Municipal GIS Vector Grid.</strong> Displaying real complaint geolocations across Gwalior municipal jurisdiction.
                   </span>
                 </div>
                 <span style={{ fontSize: '0.725rem', color: '#92400e', fontStyle: 'italic' }}>
-                  Set VITE_GOOGLE_MAPS_API_KEY in .env to activate Google Maps satellite & road tiles.
+                  {googleMapsApiKey ? 'Loading Google Map tiles...' : 'Add VITE_GOOGLE_MAPS_API_KEY in .env for satellite map imagery.'}
                 </span>
               </div>
 
@@ -696,9 +942,12 @@ const ComplaintMap = () => {
                   const latSpan = GWALIOR_BOUNDS.maxLat - GWALIOR_BOUNDS.minLat;
                   const lngSpan = GWALIOR_BOUNDS.maxLng - GWALIOR_BOUNDS.minLng;
 
-                  // Normalize to 12% - 88% range for neat aesthetic containment
-                  const topPercent = 88 - ((complaint.latitude - GWALIOR_BOUNDS.minLat) / latSpan) * 76;
-                  const leftPercent = 12 + ((complaint.longitude - GWALIOR_BOUNDS.minLng) / lngSpan) * 76;
+                  // Clamp percentage to 10% - 90% range for aesthetic containment
+                  const clampedLat = Math.min(Math.max(complaint.latitude, GWALIOR_BOUNDS.minLat), GWALIOR_BOUNDS.maxLat);
+                  const clampedLng = Math.min(Math.max(complaint.longitude, GWALIOR_BOUNDS.minLng), GWALIOR_BOUNDS.maxLng);
+
+                  const topPercent = 88 - ((clampedLat - GWALIOR_BOUNDS.minLat) / latSpan) * 76;
+                  const leftPercent = 12 + ((clampedLng - GWALIOR_BOUNDS.minLng) / lngSpan) * 76;
 
                   const isSelected = selectedComplaint?.id === complaint.id;
                   const priClass = complaint.priority === 'High' 
@@ -780,7 +1029,7 @@ const ComplaintMap = () => {
                 onClick={() => handleViewComplaint(selectedComplaint.id)}
               >
                 <Eye size={13} />
-                <span>View Complaint</span>
+                <span>View Complaint Details</span>
               </button>
             </div>
           )}

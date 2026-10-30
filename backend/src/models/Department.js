@@ -110,7 +110,15 @@ const departmentSchema = new mongoose.Schema({
     type: String,
     default: '0 days'
   },
-  staff: [staffMemberSchema]
+  staff: [staffMemberSchema],
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
+  }
 }, {
   timestamps: true,
   collection: 'departments'
