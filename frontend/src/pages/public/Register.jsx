@@ -245,7 +245,6 @@ const Register = () => {
         {/* Official Google Identity Services Authentication */}
         <GoogleAuthButton 
           text="continue_with"
-          role={formData.role}
           onSuccess={(userData) => {
             setSuccess(`Welcome, ${userData.name}! Redirecting...`);
             setTimeout(() => {

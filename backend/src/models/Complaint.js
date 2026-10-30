@@ -116,6 +116,12 @@ const complaintSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  imageMetadata: {
+    contentType: { type: String, default: 'image/jpeg' },
+    originalName: { type: String, default: null },
+    size: { type: Number, default: 0 },
+    uploadedAt: { type: Date, default: Date.now }
+  },
   resolutionImage: {
     type: String,
     default: null

@@ -12,17 +12,8 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Multer storage engine
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `complaint-${uniqueSuffix}${ext}`);
-  }
-});
+// Memory storage keeps buffer in memory so we can store it directly in MongoDB
+const storage = multer.memoryStorage();
 
 // Image file validation
 const fileFilter = (req, file, cb) => {
@@ -43,7 +34,8 @@ export const upload = multer({
 });
 
 /**
- * Middleware wrapper to handle multer error cleanly
+ * Middleware wrapper to handle image upload and convert buffer to Base64 data URL
+ * so it can be stored directly inside the MongoDB database document.
  */
 export const handleImageUpload = (fieldName = 'image') => {
   const singleUpload = upload.single(fieldName);
@@ -67,6 +59,25 @@ export const handleImageUpload = (fieldName = 'image') => {
           message: err.message
         });
       }
+
+      // If file was uploaded via multipart/form-data, convert buffer to Base64 data URL
+      if (req.file && req.file.buffer) {
+        const mime = req.file.mimetype || 'image/jpeg';
+        req.file.base64 = req.file.buffer.toString('base64');
+        req.file.dataUrl = `data:${mime};base64,${req.file.base64}`;
+
+        // Also write a disk backup for static access compatibility
+        try {
+          const ext = path.extname(req.file.originalname).toLowerCase() || '.jpg';
+          const filename = `complaint-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+          fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+          req.file.filename = filename;
+          req.file.diskPath = `/uploads/${filename}`;
+        } catch (diskErr) {
+          console.warn('[Upload Middleware] Failed to write disk backup:', diskErr.message);
+        }
+      }
+
       next();
     });
   };

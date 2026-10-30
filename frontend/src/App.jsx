@@ -26,6 +26,7 @@ import CitizenProfile from './pages/citizen/CitizenProfile';
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AllComplaints from './pages/admin/AllComplaints';
+import ReportedIssues from './pages/admin/ReportedIssues';
 import Analytics from './pages/admin/Analytics';
 import ComplaintMap from './pages/admin/ComplaintMap';
 import Users from './pages/admin/Users';
@@ -112,6 +113,7 @@ function App() {
           >
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="complaints" element={<AllComplaints />} />
+            <Route path="reported-issues" element={<ReportedIssues />} />
             <Route path="complaints/:id" element={<ComplaintDetails />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="map" element={<ComplaintMap />} />

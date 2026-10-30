@@ -6,6 +6,7 @@ import Admin from '../models/Admin.js';
 import Department from '../models/Department.js';
 import Setting from '../models/Setting.js';
 import Complaint from '../models/Complaint.js';
+import ReportIssue from '../models/ReportIssue.js';
 
 const defaultDepartments = [
   {
@@ -304,6 +305,32 @@ export const seedDatabase = async () => {
       if (!exists) {
         await Complaint.create(c);
         console.log(`[Seeder] Seeded complaint: ${c.complaintId} - ${c.title}`);
+      }
+
+      const existsReport = await ReportIssue.findOne({ reportId: c.complaintId });
+      if (!existsReport) {
+        await ReportIssue.create({
+          reportId: c.complaintId,
+          complaintId: c.complaintId,
+          title: c.title,
+          description: c.description,
+          category: c.category,
+          priority: c.priority,
+          severity: c.severity,
+          status: c.status,
+          citizen: c.citizen,
+          citizenName: c.citizenName,
+          citizenPhone: c.citizenPhone,
+          citizenEmail: `${c.citizenName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+          department: c.department,
+          departmentName: c.departmentName,
+          location: c.location,
+          area: c.area,
+          address: c.address,
+          image: c.image || null,
+          timeline: c.timeline
+        });
+        console.log(`[Seeder] Seeded report issue in DB collection 'reportissues': ${c.complaintId}`);
       }
     }
 

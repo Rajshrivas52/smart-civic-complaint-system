@@ -256,10 +256,9 @@ export const login = async (req, res, next) => {
  */
 export const googleAuth = async (req, res, next) => {
   try {
-    const { credential, role: bodyRole } = req.body;
-    // Capture role from body, query parameters (e.g. ?role=department), or state argument
-    const queryRole = req.query.role || req.query.state;
-    const roleInput = bodyRole || queryRole;
+    const { credential, role: bodyRole, role, departmentName } = req.body;
+    const queryRole = req.query?.role || req.query?.state;
+    const roleInput = bodyRole || role || queryRole || null;
 
     if (!credential) {
       return res.status(400).json({
@@ -384,18 +383,18 @@ export const googleAuth = async (req, res, next) => {
       });
     }
 
-    // 4. Handle NEW Google Registration
-    // DO NOT default new Google OAuth users to "citizen". Require an explicit role parameter.
-    if (!roleInput || typeof roleInput !== 'string' || !['citizen', 'department', 'admin'].includes(roleInput.toLowerCase().trim())) {
-      return res.status(400).json({
-        success: false,
+    // 4. Handle new Google registration according to selected role
+    // If no role is passed for a new account, return needsRoleSelection so the UI can display the onboarding modal
+    if (!roleInput) {
+      return res.status(200).json({
+        success: true,
+        needsRoleSelection: true,
         requiresRoleSelection: true,
-        message: 'Role selection required. Please select your account role (Citizen, Department, or Admin) to complete registration.',
-        googleUser: {
-          email: googleEmail,
+        message: 'Please choose an account role to complete registration.',
+        googleProfile: {
           name: googleName,
-          picture: googlePicture,
-          sub: googleSub
+          email: googleEmail,
+          picture: googlePicture
         }
       });
     }
@@ -430,52 +429,45 @@ export const googleAuth = async (req, res, next) => {
     } else if (requestedRole === 'department') {
       const deptId = `DEPT-${Date.now().toString().slice(-6)}`;
       const baseName = googleName && googleName !== 'User' ? googleName : googleEmail.split('@')[0];
-      const deptName = `${baseName} Department`;
-      const deptCode = (baseName.substring(0, 4) || 'DEPT').toUpperCase();
+      const targetDeptName = (departmentName && departmentName.trim()) 
+        ? departmentName.trim() 
+        : `${baseName} Department`;
 
-      let finalDeptName = deptName;
-      let finalDeptCode = deptCode;
-
-      const existingName = await Department.findOne({ name: finalDeptName });
-      if (existingName) {
-        finalDeptName = `${deptName} ${Date.now().toString().slice(-4)}`;
-      }
-      const existingCode = await Department.findOne({ code: finalDeptCode });
-      if (existingCode) {
-        finalDeptCode = `${deptCode}${Date.now().toString().slice(-2)}`;
-      }
-
-      newAccount = await Department.create({
-        departmentId: deptId,
-        name: finalDeptName,
-        code: finalDeptCode,
-        email: googleEmail,
-        googleId: googleSub,
-        authProvider: 'google',
-        role: 'department',
-        head: googleName,
-        phone: '',
-        status: 'Active'
-      });
-    } else if (requestedRole === 'admin') {
-      const adminId = `ADM-${Date.now().toString().slice(-6)}`;
-      newAccount = await Admin.create({
-        adminId,
-        name: googleName,
-        email: googleEmail,
-        googleId: googleSub,
-        authProvider: 'google',
-        role: 'admin',
-        avatar: googlePicture,
-        phone: '',
-        status: 'Active',
-        activity: [
-          {
-            desc: 'Admin registered via Google Authentication',
-            time: 'Just now',
-            timestamp: new Date()
-          }
+      // Check if department exists by name or email
+      const escapedDeptName = targetDeptName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let existingDept = await Department.findOne({
+        $or: [
+          { name: new RegExp(`^${escapedDeptName}$`, 'i') },
+          { email: googleEmail }
         ]
+      });
+
+      if (existingDept) {
+        existingDept.googleId = googleSub;
+        existingDept.authProvider = 'google';
+        if (googlePicture && !existingDept.avatar) existingDept.avatar = googlePicture;
+        existingDept.lastActive = new Date();
+        await existingDept.save({ validateBeforeSave: false });
+        newAccount = existingDept;
+      } else {
+        const deptCode = (targetDeptName.substring(0, 4) || 'DEPT').toUpperCase();
+        newAccount = await Department.create({
+          departmentId: deptId,
+          name: targetDeptName,
+          code: deptCode,
+          email: googleEmail,
+          googleId: googleSub,
+          authProvider: 'google',
+          role: 'department',
+          head: googleName,
+          phone: '',
+          status: 'Active'
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account role selected. Administrator accounts cannot be registered publicly.'
       });
     }
 

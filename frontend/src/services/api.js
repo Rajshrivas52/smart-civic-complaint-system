@@ -98,10 +98,10 @@ export const login = async ({ email, password }) => {
   return data;
 };
 
-export const googleAuth = async (credential, role) => {
+export const googleAuth = async (credential, role, extraData = {}) => {
   const data = await apiRequest('/auth/google', {
     method: 'POST',
-    body: JSON.stringify({ credential, role })
+    body: JSON.stringify({ credential, role, ...extraData })
   });
 
   if (data.token && data.user) {
@@ -183,6 +183,34 @@ export const createComplaint = async (complaintData) => {
     method: 'POST',
     body: isFormData ? complaintData : JSON.stringify(complaintData)
   });
+};
+
+export const createReportIssue = async (reportData) => {
+  const isFormData = typeof FormData !== 'undefined' && reportData instanceof FormData;
+  return apiRequest('/report-issues', {
+    method: 'POST',
+    body: isFormData ? reportData : JSON.stringify(reportData)
+  });
+};
+
+export const getReportIssues = async (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.append(key, val);
+    }
+  });
+  const queryString = query.toString();
+  return apiRequest(`/report-issues${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getMyReportIssues = async () => {
+  return apiRequest('/report-issues/my');
+};
+
+export const getReportIssueById = async (id) => {
+  if (!id) throw new Error('Report ID is required');
+  return apiRequest(`/report-issues/${encodeURIComponent(id)}`);
 };
 
 export const getComplaints = async (params = {}) => {

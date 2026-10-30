@@ -1,4 +1,5 @@
 import Complaint from '../models/Complaint.js';
+import ReportIssue from '../models/ReportIssue.js';
 import Citizen from '../models/Citizen.js';
 import Department from '../models/Department.js';
 import Admin from '../models/Admin.js';
@@ -162,12 +163,38 @@ export const createComplaint = async (req, res, next) => {
       }
     }
 
-    // 3. Process image (from Multer upload or direct URL string)
-    let imageUrl = null;
+    // 3. Process image: Store Base64 directly inside MongoDB database
+    let imageBase64 = null;
+    let imageMetadata = {
+      contentType: 'image/jpeg',
+      originalName: null,
+      size: 0,
+      uploadedAt: new Date()
+    };
+
     if (req.file) {
-      imageUrl = `/uploads/${req.file.filename}`;
+      if (req.file.dataUrl) {
+        imageBase64 = req.file.dataUrl;
+      } else if (req.file.buffer) {
+        const mime = req.file.mimetype || 'image/jpeg';
+        imageBase64 = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+      } else if (req.file.diskPath) {
+        imageBase64 = req.file.diskPath;
+      }
+      imageMetadata = {
+        contentType: req.file.mimetype || 'image/jpeg',
+        originalName: req.file.originalname || req.file.filename,
+        size: req.file.size || (req.file.buffer ? req.file.buffer.length : 0),
+        uploadedAt: new Date()
+      };
     } else if (req.body.image && typeof req.body.image === 'string' && req.body.image.trim()) {
-      imageUrl = req.body.image.trim();
+      imageBase64 = req.body.image.trim();
+      imageMetadata = {
+        contentType: imageBase64.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
+        originalName: 'uploaded_image',
+        size: imageBase64.length,
+        uploadedAt: new Date()
+      };
     }
 
     // 4. Normalize category & auto-assign department
@@ -190,7 +217,7 @@ export const createComplaint = async (req, res, next) => {
       {
         status: 'Pending',
         date: new Date(),
-        note: 'Complaint submitted by citizen',
+        note: 'Complaint submitted by citizen and stored in database',
         updatedBy: user._id,
         updatedByName: user.name
       }
@@ -206,7 +233,7 @@ export const createComplaint = async (req, res, next) => {
       });
     }
 
-    // 6. Create complaint document
+    // 6. Create complaint document in 'complaints' collection
     const complaint = await Complaint.create({
       complaintId,
       title: title.trim(),
@@ -223,7 +250,8 @@ export const createComplaint = async (req, res, next) => {
       location: { lat, lng },
       area: assignedArea,
       address: address.trim(),
-      image: imageUrl,
+      image: imageBase64,
+      imageMetadata,
       timeline,
       aiAnalysis: {
         detectedCategory: canonicalCategory,
@@ -232,6 +260,40 @@ export const createComplaint = async (req, res, next) => {
         processed: true
       }
     });
+
+    // 6b. Store in dedicated 'reportissues' collection in MongoDB (Separate page in database)
+    try {
+      await ReportIssue.create({
+        reportId: complaintId,
+        complaintId,
+        title: title.trim(),
+        description: description.trim(),
+        category: canonicalCategory,
+        priority: normalizedPriority,
+        severity: normalizedSeverity,
+        status: initialStatus,
+        citizen: user._id,
+        citizenName: user.name,
+        citizenPhone: user.phone || 'Not Provided',
+        citizenEmail: user.email || 'Not Provided',
+        department: targetDept ? targetDept._id : null,
+        departmentName: deptName,
+        location: { lat, lng },
+        area: assignedArea,
+        address: address.trim(),
+        image: imageBase64,
+        imageMetadata,
+        timeline,
+        aiAnalysis: {
+          detectedCategory: canonicalCategory,
+          detectedPriority: normalizedPriority,
+          confidence: 0.92,
+          processed: true
+        }
+      });
+    } catch (reportIssueErr) {
+      console.warn('[Database] ReportIssue collection insert warning:', reportIssueErr.message);
+    }
 
     // 7. Update citizen's complaint counter & activity
     try {

@@ -1,12 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Upload, AlertCircle, X, CheckCircle } from 'lucide-react';
+import { MapPin, Upload, AlertCircle, X, CheckCircle, Database, Check } from 'lucide-react';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Select from '../../components/Select';
 import Button from '../../components/Button';
 import { mockCategories } from '../../utils/mockData';
-import { createComplaint } from '../../services/api';
+import { createReportIssue, createComplaint } from '../../services/api';
 
 const ReportComplaint = () => {
   const navigate = useNavigate();
@@ -26,6 +26,8 @@ const ReportComplaint = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [imageBase64, setImageBase64] = useState(null);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -48,11 +50,20 @@ const ReportComplaint = () => {
 
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
+
+    // Convert to Base64 data URL for direct database storage
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImageBase64(reader.result);
+    };
+    reader.readAsDataURL(file);
+
     setErrorMessage('');
   };
 
   const handleRemoveImage = () => {
     setImageFile(null);
+    setImageBase64(null);
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
     }
@@ -87,6 +98,9 @@ const ReportComplaint = () => {
         payload.append('latitude', '26.2183');
         payload.append('longitude', '78.1828');
         payload.append('image', imageFile);
+        if (imageBase64) {
+          payload.append('imageBase64', imageBase64);
+        }
       } else {
         payload = {
           title: formData.title.trim(),
@@ -100,19 +114,26 @@ const ReportComplaint = () => {
         };
       }
 
-      const response = await createComplaint(payload);
+      // Submit to dedicated report-issues database endpoint
+      let response;
+      try {
+        response = await createReportIssue(payload);
+      } catch (issueErr) {
+        // Fallback to complaint endpoint which also writes to reportissues collection
+        response = await createComplaint(payload);
+      }
 
       setSuccessMessage(
-        response.message || 'Complaint submitted successfully! AI has routed your issue to the appropriate department.'
+        response.message || 'Civic issue reported successfully and stored in the database with image!'
       );
 
       setTimeout(() => {
         navigate('/citizen/complaints');
       }, 1500);
     } catch (err) {
-      console.error('Failed to submit complaint:', err);
+      console.error('Failed to submit report issue:', err);
       setErrorMessage(
-        err.message || 'Failed to submit complaint. Please check your connection and try again.'
+        err.message || 'Failed to submit report. Please check your connection and try again.'
       );
     } finally {
       setLoading(false);
@@ -313,6 +334,27 @@ const ReportComplaint = () => {
                 </button>
               </div>
             )}
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginTop: '0.6rem',
+              fontSize: '0.8rem',
+              color: imagePreview ? '#15803d' : 'var(--text-muted)',
+              backgroundColor: imagePreview ? '#f0fdf4' : 'transparent',
+              padding: imagePreview ? '0.4rem 0.6rem' : '0',
+              borderRadius: '6px',
+              border: imagePreview ? '1px solid #bbf7d0' : 'none',
+              width: 'fit-content'
+            }}>
+              <Database size={15} color={imagePreview ? '#16a34a' : 'var(--primary)'} />
+              <span>
+                {imagePreview 
+                  ? 'Image will be stored directly inside your MongoDB database document.' 
+                  : 'Images are stored directly in your database collection (Base64).'}
+              </span>
+            </div>
           </div>
 
           <div style={{

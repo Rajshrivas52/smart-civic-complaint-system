@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FileText, 
+  Database,
   BarChart2, 
   MapPin, 
   Users, 
@@ -26,6 +27,7 @@ const AdminSidebar = ({ isOpen, toggleSidebar }) => {
   const navItems = [
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/complaints', icon: FileText, label: 'All Complaints' },
+    { to: '/admin/reported-issues', icon: Database, label: 'Reported Issues (DB)' },
     { to: '/admin/analytics', icon: BarChart2, label: 'Analytics' },
     { to: '/admin/complaint-map', icon: MapPin, label: 'Complaint Map' },
     { to: '/admin/users', icon: Users, label: 'Users' },
